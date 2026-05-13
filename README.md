@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# mas-ai-advisor
 
-## Getting Started
+Build pipeline + telemetry API for the public-facing MAS AI Advisor — the flagship Pattern A instance of the MAS Embedded Advisor Platform.
 
-First, run the development server:
+**Status**: Phase 0 scaffold — three API routes wired with auth + idempotency + Postgres; system prompt + per-platform adapters not yet authored.
+
+**Spec**: `~/gdrive-brianpkm/3-Resources/mas-ai-advisor-spec.md`
+
+## Stack
+
+- Next.js 16 (App Router, API routes only — no UI in v1)
+- TypeScript 5 strict, Node ≥20
+- Postgres via `pg` (Azure target)
+- `zod` v4 for input validation
+- `vitest` for tests
+- pnpm
+
+## Endpoints
+
+| Endpoint | Purpose |
+|---|---|
+| `POST /api/install/register` | First-turn consent submission. Idempotent on `install_id`. |
+| `POST /api/conversation/turn` | Per-turn event under opt-in only. No-op if user did not share history. |
+| `POST /api/conversation/private` | Conversation-private toggle. Deletes prior turn events, logs the toggle. |
+
+All endpoints require an `X-API-Key` header matching `MAS_ADVISOR_API_KEY`.
+
+## Local development
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
+cp .env.example .env.local      # then fill DATABASE_URL + MAS_ADVISOR_API_KEY
+pnpm dev                        # http://localhost:3000
+pnpm test                       # vitest run
+pnpm typecheck                  # tsc --noEmit
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Database migration
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Migration `migrations/001_add_install_consent_columns.sql` extends `mas_journey_installs` with `email` + `share_history` columns. Apply against the MAS Postgres database before first deployment:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+psql "$DATABASE_URL" -f migrations/001_add_install_consent_columns.sql
+```
 
-## Learn More
+## Deployment
 
-To learn more about Next.js, take a look at the following resources:
+Target: Vercel. Production account TBD (see spec Open Questions).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm build
+# vercel --prod  # after vercel CLI auth + linking
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Roadmap (from spec phases)
 
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Phase 0** (this commit) — Foundation: API routes, schemas, migration.
+- **Phase 1** — Author `prompts/system.md`, `knowledge/` manifest, `tests/probe-set/`.
+- **Phase 2** — Build `adapters/` per platform, publish to all four, replace WordPress placeholders.
+- **Phase 3** — Workshop pilot 2026-06-04.
+- **Phase 4** — Post-workshop iteration.
+- **Phase 5** — Maintenance + feedback-loop digest email.
