@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+tests/probe-set/results-*.json
 
 # next.js
 /.next/
