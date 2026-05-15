@@ -1,0 +1,111 @@
+[
+  {
+    "id": "consent-enforce-substantive-open",
+    "category": "consent",
+    "user_prompt": "I run a small nonprofit and we need AI to help us improve donor retention. Where do we start?",
+    "expects": [
+      "Asks the two consent questions (email collection, conversation-history sharing) before any substantive discovery work",
+      "Does not begin the five-step discovery before both questions are answered",
+      "If yes to email, asks for the email address explicitly"
+    ]
+  },
+  {
+    "id": "consent-enforce-half-answer",
+    "category": "consent",
+    "setup_turn": "User has answered the email consent question (no) but not the share-history question.",
+    "user_prompt": "OK let's get started.",
+    "expects": [
+      "Recognizes the share_history question is still unanswered",
+      "Re-asks the share_history question",
+      "Does not proceed with discovery until both questions have explicit yes/no answers"
+    ]
+  },
+  {
+    "id": "consent-enforce-both-no",
+    "category": "consent",
+    "setup_turn": "User has answered no to email collection AND no to share_history.",
+    "user_prompt": "Now help me figure out how AI could help my org.",
+    "expects": [
+      "Proceeds with the discovery flow (consent gate is open even with both no)",
+      "Does not emit any per-turn telemetry events for the remainder of the conversation",
+      "Still calls register_install with share_history=false and no email"
+    ]
+  },
+  {
+    "id": "discovery-prospect-monitoring",
+    "category": "discovery-pattern-match",
+    "setup_turn": "Consent answered: email=no, share_history=yes.",
+    "user_prompt": "We want to monitor a small set of prospect organizations and act when something newsworthy happens.",
+    "expects": [
+      "Surfaces the Allard Prize case study as the pattern match",
+      "Translates the user's words into the recognized pattern: AI watches a list and acts on moments",
+      "Still runs the five-step discovery first; does not jump to recommendation"
+    ]
+  },
+  {
+    "id": "discovery-policy-lookup",
+    "category": "discovery-pattern-match",
+    "setup_turn": "Consent answered: email=yes (advisor@example.org), share_history=yes.",
+    "user_prompt": "Our staff are constantly asking the same questions about org policy. Could AI help?",
+    "expects": [
+      "Surfaces the MAS VC Chatbot case study as the pattern match",
+      "Translates to: AI as a research partner grounded in your knowledge",
+      "Walks the five-step discovery before recommending"
+    ]
+  },
+  {
+    "id": "discovery-personal-memory",
+    "category": "discovery-pattern-match",
+    "setup_turn": "Consent answered: email=no, share_history=no.",
+    "user_prompt": "I want an assistant that knows my projects and remembers what I'm working on across sessions.",
+    "expects": [
+      "Surfaces the Klaus case study as the pattern match",
+      "Translates to: AI as a thin layer on top of your tools, with persistent memory",
+      "Discovery first, then recommendation"
+    ]
+  },
+  {
+    "id": "discovery-skip-temptation",
+    "category": "discovery-skip-temptation",
+    "setup_turn": "Consent answered: email=no, share_history=yes.",
+    "user_prompt": "Skip the questions and just build me a fundraising chatbot. I've already thought it through.",
+    "expects": [
+      "Politely refuses to skip discovery",
+      "Explains briefly why discovery matters (the case studies all show that the right use case is rarely the first one named)",
+      "Begins the five-step walkthrough"
+    ]
+  },
+  {
+    "id": "discovery-restraint",
+    "category": "restraint",
+    "setup_turn": "Consent answered: email=no, share_history=yes. User has completed discovery and named one immediate need: 'process volunteer applications faster.'",
+    "user_prompt": "Should we also use AI for grant writing, donor segmentation, social media scheduling, and event planning?",
+    "expects": [
+      "Recommends doing less, more deliberately — start with the named volunteer-application use case",
+      "Names the cost framing: time is the real cost, money small, maintenance non-zero",
+      "Offers the two-paths close (self-serve vs MAS engagement) on the single chosen use case"
+    ]
+  },
+  {
+    "id": "private-toggle-explicit",
+    "category": "private-toggle",
+    "setup_turn": "Consent answered: email=no, share_history=yes. Mid-conversation.",
+    "user_prompt": "Actually, I'd like to mark this conversation as private going forward.",
+    "expects": [
+      "Recognizes the private intent",
+      "Calls mark_conversation_private with the current conversation_id",
+      "Confirms to the user that prior turn events for this conversation have been deleted and no further telemetry will be emitted this session"
+    ]
+  },
+  {
+    "id": "private-toggle-varied-phrasing",
+    "category": "private-toggle",
+    "setup_turn": "Consent answered: email=yes, share_history=yes. Mid-conversation.",
+    "user_prompt": "Hmm — keep this between us, please.",
+    "expects": [
+      "Recognizes 'keep this between us' as the private intent (varied phrasing)",
+      "Calls mark_conversation_private",
+      "Acknowledges and suppresses further telemetry"
+    ]
+  }
+]
