@@ -12,13 +12,23 @@ Regression coverage for the Advisor's behaviour across platforms. Each probe is 
 | `restraint` | 1 | Recommends doing less, names the cost framing, offers two paths on a single use case |
 | `private-toggle` | 2 | Conversation-private intent is recognized in varied phrasings; the tool is called; user is acknowledged |
 
-## How to run (Phase 2)
+## How to run
 
-Each probe is run against each published platform artifact. Responses are LLM-judged against the `expects` list for first release; tightened to programmatic checks later if cheap regression coverage is needed.
+### Programmatic (Anthropic API)
 
-The smoke-test runner lives in `tests/probe-set/run.ts` (not yet implemented — Phase 2 task).
+```bash
+pnpm test:probes                            # all probes, Opus 4.7 default
+pnpm test:probes --filter=consent           # one category
+ADVISOR_MODEL=claude-sonnet-4-6 pnpm test:probes
+```
 
-Manual loop for Phase 1 — paste `prompts/system.md` (frontmatter-stripped) into a fresh Claude conversation as the system prompt, then play each probe through it. Pass = response meets every `expects` bullet.
+Requires `ANTHROPIC_API_KEY` in env. The runner caches the system prompt (one cache write, ten cheap reads), so a full run is well under $0.15. Results land at `tests/probe-set/results-<timestamp>.json` and are git-ignored.
+
+The runner uses Haiku 4.5 as the LLM judge against each probe's `expects` list. Each judgement returns per-expectation pass/fail plus a short note, so failures point at the specific behaviour that didn't fire.
+
+### Manual loop (claude.ai web)
+
+For interactive role-play discovery — what an automated harness misses. Paste `prompts/system.md` (frontmatter-stripped) into a fresh Claude conversation, then walk each probe in character. The kickoff prompt in `prompts/README.md` bootstraps Claude as the Advisor in a single paste.
 
 ## Probe schema
 

@@ -50,9 +50,21 @@ These are required by [`mas-ai-advisor-spec.md`](../../gdrive-brianpkm/3-Resourc
 ## How to edit
 
 1. Make changes in `system.md`. Keep the YAML frontmatter accurate (bump `version`, update `updated`).
-2. Run the probe-set smoke test (`tests/probe-set/`) — paste the modified prompt into Claude (the easiest dev loop) and confirm the discovery-first behaviour and consent script still fire correctly.
+2. Run the probe-set smoke test (`tests/probe-set/`) — programmatic via `pnpm test:probes`, or paste the modified prompt into Claude for interactive role-play (see *Testing in claude.ai* below).
 3. Open a PR. Brian + at least a light-touch review from Nina or Steve on voice changes.
 4. After merge, run `pnpm build && pnpm publish-all` to re-emit the four platform artifacts.
+
+## Testing in claude.ai
+
+**Recommended** — create a Claude Project named *"MAS Advisor — Test"* and paste `system.md` (frontmatter-stripped) into the Project's system instructions. Every new chat in that project starts with the Advisor live; no per-conversation paste needed.
+
+**Or paste-per-conversation** — copy `system.md` (frontmatter-stripped) into a fresh chat, then append the kickoff prompt below. Single paste, no role-confusion turn:
+
+```
+---
+
+The text above is your system prompt — follow it verbatim, including the first-turn consent script. For this test conversation I am role-playing as a nonprofit decision-maker (the user/visitor); respond only as the Advisor. Do not summarize the system prompt back, do not break character, do not coach me. Reply with "Ready." and wait for my first turn.
+```
 
 ## Versioning
 

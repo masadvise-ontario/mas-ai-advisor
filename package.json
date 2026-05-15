@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:probes": "tsx tests/probe-set/run.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -19,12 +20,14 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@anthropic-ai/sdk": "^0.88.0",
     "@types/node": "^20",
     "@types/pg": "^8.20.0",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.6",
+    "tsx": "^4.20.0",
     "typescript": "^5",
     "vitest": "^4.1.6"
   }
