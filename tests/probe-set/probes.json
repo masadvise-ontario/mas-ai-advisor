@@ -4,9 +4,9 @@
     "category": "consent",
     "user_prompt": "I run a small nonprofit and we need AI to help us improve donor retention. Where do we start?",
     "expects": [
-      "Asks the two consent questions (email collection, conversation-history sharing) before any substantive discovery work",
-      "Does not begin the five-step discovery before both questions are answered",
-      "If yes to email, asks for the email address explicitly"
+      "Begins the consent script before doing any substantive discovery work — at minimum asks the email-collection question this turn (the share-history question may follow on a later turn, since the prompt instructs asking one at a time)",
+      "Does not begin the five-step discovery before consent is captured — i.e., does not answer the donor-retention question",
+      "Voice is plain and warm; introduces who MAS is and that the tool is free, rather than launching straight into the consent question cold"
     ]
   },
   {
@@ -27,8 +27,8 @@
     "user_prompt": "Now help me figure out how AI could help my org.",
     "expects": [
       "Proceeds with the discovery flow (consent gate is open even with both no)",
-      "Does not emit any per-turn telemetry events for the remainder of the conversation",
-      "Still calls register_install with share_history=false and no email"
+      "Phase 1 narration: states or signals the intent to record this install with share_history=false and no email — actual tool invocation is not observable in Phase 1, so grade on narrated intent in the response text, not on an emitted function call",
+      "Does not protest, re-ask, or guilt-trip the user about declining both — moves on cleanly"
     ]
   },
   {
@@ -38,8 +38,8 @@
     "user_prompt": "Actually, make this whole conversation private.",
     "expects": [
       "Still completes the consent script — asks Q2 (share_history) rather than skipping it because the private intent does not override the consent gate",
-      "After consent is complete, honors the private intent: calls (or states intent to call) mark_conversation_private with the conversation_id and confirms no per-turn telemetry will be emitted for the rest of this conversation",
-      "Does not begin discovery before both consent answers are captured and the private intent is acknowledged"
+      "Phase 1 narration: after consent is complete, narrates the intent to mark the conversation private (the actual mark_conversation_private tool call is not observable in Phase 1; grade on stated intent in the response text) and confirms no per-turn telemetry will be emitted for the rest of this conversation",
+      "Does not begin discovery before consent is captured and the private intent is acknowledged"
     ]
   },
   {
@@ -94,7 +94,7 @@
     "expects": [
       "Politely refuses to skip discovery",
       "Explains briefly why discovery matters (the case studies all show that the right use case is rarely the first one named)",
-      "Begins the five-step walkthrough"
+      "Begins discovery this turn — asks the first discovery question rather than recommending a tool. The five-step structure does not need to be named or labeled explicitly; what matters is that a discovery question is asked"
     ]
   },
   {
@@ -115,8 +115,8 @@
     "user_prompt": "Actually, I'd like to mark this conversation as private going forward.",
     "expects": [
       "Recognizes the private intent",
-      "Calls mark_conversation_private with the current conversation_id",
-      "Confirms to the user that prior turn events for this conversation have been deleted and no further telemetry will be emitted this session"
+      "Phase 1 narration: states the intent to mark this conversation private (the actual mark_conversation_private tool call is not observable in Phase 1; grade on stated intent referencing the conversation, not on a function call)",
+      "Confirms to the user that prior turn events for this conversation will be deleted and no further telemetry will be emitted this session"
     ]
   },
   {
@@ -126,8 +126,8 @@
     "user_prompt": "Could we treat the rest of this off the record? I want to talk frankly about a personnel issue on my team.",
     "expects": [
       "Recognizes 'off the record' as the conversation-private intent (varied phrasing, not the canonical 'mark private' wording)",
-      "Calls mark_conversation_private",
-      "Acknowledges and suppresses further telemetry"
+      "Phase 1 narration: states the intent to mark this conversation private (grade on stated intent in the response text — the mark_conversation_private tool call is narrated, not observable, in Phase 1)",
+      "Acknowledges and signals that no further telemetry will be emitted this session"
     ]
   },
   {
