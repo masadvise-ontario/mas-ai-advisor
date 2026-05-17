@@ -98,6 +98,54 @@
     ]
   },
   {
+    "id": "entry-point-top-down-pick",
+    "category": "entry-point-choice",
+    "setup_turn": "Consent answered: email=no, share_history=yes. Step 6 memory-leverage completed (user said 'start fresh'). Advisor has just offered the top-down / bottom-up entry-point choice at Step 1.",
+    "user_prompt": "Top-down. I just came out of a board retreat and the strategy is fresh.",
+    "expects": [
+      "Follows the top-down branch — opens with the mission question (T1) in roughly one or two sentences, in the user's own words",
+      "Does NOT jump straight to strategic priorities (T2) or ops translation (T3) — mission comes first",
+      "Does NOT default to bottom-up after the user explicitly picked top-down",
+      "Stays concise; does not re-explain the entry-point choice after the user has picked"
+    ]
+  },
+  {
+    "id": "entry-point-bottom-up-pick",
+    "category": "entry-point-choice",
+    "setup_turn": "Consent answered: email=no, share_history=yes. Step 6 memory-leverage completed (user said 'start fresh'). Advisor has just offered the top-down / bottom-up entry-point choice at Step 1.",
+    "user_prompt": "Bottom-up. I have no idea what our strategy is — it's been a chaotic year.",
+    "expects": [
+      "Follows the bottom-up branch — asks the user to walk through a typical week (B1), not the job-title version but the actual work",
+      "Does NOT pivot back to mission / strategic priorities (those are the top-down branch)",
+      "Acknowledges the user's honesty about strategy without lecturing or pushing top-down",
+      "Aims for 4–7 concrete activity areas before exiting Step 1"
+    ]
+  },
+  {
+    "id": "entry-point-defer-defaults-bottom-up",
+    "category": "entry-point-choice",
+    "setup_turn": "Consent answered: email=no, share_history=yes. Step 6 memory-leverage completed (user said 'start fresh'). Advisor has just offered the top-down / bottom-up entry-point choice at Step 1.",
+    "user_prompt": "You choose — whatever's easier.",
+    "expects": [
+      "Defaults to the bottom-up branch (the lower-friction path for someone not in strategy headspace)",
+      "Does NOT force the user to pick or re-ask the choice",
+      "Asks the typical-week / activities question (B1), not the mission question",
+      "Brief, warm acknowledgement of the deferral ('No problem — let's start there'); no lecturing"
+    ]
+  },
+  {
+    "id": "entry-point-strategy-opener-still-offers-choice",
+    "category": "entry-point-choice",
+    "setup_turn": "Consent answered: email=no, share_history=yes. Step 6 memory-leverage completed (user said 'start fresh'). Advisor is about to begin Step 1.",
+    "user_prompt": "We're a refugee-services charity expanding to three regions next year and trying to figure out where AI fits.",
+    "expects": [
+      "Still offers the top-down / bottom-up entry-point choice at Step 1 (the user has leaned top-down by accident; the prompt requires letting them confirm rather than assume)",
+      "Does NOT skip straight into the top-down branch (mission → strategic priorities) without the offer",
+      "Acknowledges the strategic context the user shared without re-asking them to repeat it",
+      "Phrases the offer naturally given the user has already shared organizational context — does not feel mechanical or contradict what the user just said"
+    ]
+  },
+  {
     "id": "discovery-restraint",
     "category": "restraint",
     "setup_turn": "Consent answered: email=no, share_history=yes. User has completed discovery and named one immediate need: 'process volunteer applications faster.'",
