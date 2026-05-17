@@ -1,26 +1,24 @@
 /**
  * MAS AI Advisor — streamable-HTTP MCP endpoint.
  *
- * Replaces the original stdio adapter (deprecated 2026-05-17 — see spec
- * "MCP transport + authorization" locked decision). claude.ai web custom
- * connectors require a remote HTTPS MCP endpoint; this is that endpoint.
+ * OAuth 2.1 protected (PR #13). Tokens issued by the in-repo OAuth
+ * provider (/oauth/token), verified against /.well-known/jwks.json.
  *
- * Exposes three tools that proxy the three Advisor API handlers:
- *   - register_install
- *   - record_turn
- *   - set_conversation_privacy
- *
- * Auth (PR 1, transitional): Authorization: Bearer <MAS_ADVISOR_API_KEY>.
- * Auth (PR 2): OAuth 2.1 bearer JWT issued by the in-repo provider layer
- * (Auth.js + .well-known/* + /oauth/{authorize,token,register}).
+ * Tools exposed:
+ *   - get_user_identity        (read-only; returns OAuth email)
+ *   - register_install         (mutation)
+ *   - record_turn              (mutation)
+ *   - set_conversation_privacy (mutation; action: pause|resume|forget)
  */
 
 import type { NextRequest } from 'next/server';
+import { z } from 'zod';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { WebStandardStreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/webStandardStreamableHttp.js';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
+import type { AuthInfo } from '@modelcontextprotocol/sdk/server/auth/types.js';
 
-import { checkBearerToken } from '@/lib/auth';
+import { verifyMcpAuth } from '@/lib/auth';
 import {
   registerInstall,
   recordTurn,
@@ -35,17 +33,19 @@ import {
   type TurnBody,
   type PrivateBody,
 } from '@/lib/schemas';
+import { getProtectedResourceMetadataUri } from '@/lib/oauth/config';
 
 export const runtime = 'nodejs';
 
 function unauthorized(reason: string): Response {
-  return new Response(JSON.stringify({ error: reason }), {
+  // RFC 9728 — the resource_metadata pointer lets the client discover the
+  // authorization server without a separate config step.
+  const challenge = `Bearer realm="MAS Advisor MCP", resource_metadata="${getProtectedResourceMetadataUri()}"`;
+  return new Response(JSON.stringify({ error: 'unauthorized', reason }), {
     status: 401,
     headers: {
       'Content-Type': 'application/json',
-      // OAuth 2.0 bearer-token challenge (RFC 6750). PR 2 will extend this
-      // with the resource_metadata pointer per RFC 9728.
-      'WWW-Authenticate': 'Bearer realm="MAS Advisor MCP"',
+      'WWW-Authenticate': challenge,
     },
   });
 }
@@ -64,7 +64,10 @@ function textResult(payload: unknown, isError = false): CallToolResult {
 
 function errorResult(err: unknown): CallToolResult {
   if (err instanceof UnknownInstallError) {
-    return textResult({ error: 'unknown install_id', install_id: err.install_id }, true);
+    return textResult(
+      { error: 'unknown install_id', install_id: err.install_id },
+      true,
+    );
   }
   return textResult(
     {
@@ -75,22 +78,73 @@ function errorResult(err: unknown): CallToolResult {
   );
 }
 
+type ToolExtra = {
+  authInfo?: AuthInfo;
+};
+
+function emailFromAuth(extra: ToolExtra): string | null {
+  const e = extra.authInfo?.extra;
+  if (e && typeof (e as Record<string, unknown>).email === 'string') {
+    return (e as Record<string, unknown>).email as string;
+  }
+  return null;
+}
+
+function emailVerifiedFromAuth(extra: ToolExtra): boolean {
+  const e = extra.authInfo?.extra;
+  if (e && typeof (e as Record<string, unknown>).email_verified === 'boolean') {
+    return (e as Record<string, unknown>).email_verified as boolean;
+  }
+  return false;
+}
+
 function buildServer(): McpServer {
   const server = new McpServer(
-    { name: 'mas-ai-advisor', version: '0.2.0' },
+    { name: 'mas-ai-advisor', version: '0.3.0' },
     { capabilities: { tools: {} } },
+  );
+
+  server.registerTool(
+    'get_user_identity',
+    {
+      description:
+        "Return the OAuth-verified identity of the signed-in user (email + verification flag). Call this at the start of the first-turn consent script so you can read the user's email back to them before asking for consent. No arguments.",
+      inputSchema: z.object({}),
+    },
+    async (_args, extra) => {
+      const email = emailFromAuth(extra as ToolExtra);
+      if (!email) {
+        return textResult(
+          { error: 'no OAuth identity attached to this request' },
+          true,
+        );
+      }
+      return textResult({
+        email,
+        email_verified: emailVerifiedFromAuth(extra as ToolExtra),
+      });
+    },
   );
 
   server.registerTool(
     'register_install',
     {
       description:
-        "Submit first-turn consent answers to the MAS Advisor. Call this once per install, after the Advisor has run the consent script and captured the user's answers about email collection and conversation-history sharing.",
+        "Submit first-turn consent answers to the MAS Advisor. Call this once per install, after the user has answered the share_history question. If `email` is omitted, the verified OAuth email is used (per the user's 'use this' consent). If `email` is provided, that override is stored (per the user's 'different' consent). If `email_decline: true` is set, no email is stored (per the user's 'decline' consent).",
       inputSchema: registerBodySchema,
     },
-    async (args: RegisterBody) => {
+    async (args: RegisterBody, extra) => {
       try {
-        const result = await registerInstall(args);
+        const oauthEmail = emailFromAuth(extra as ToolExtra);
+        // Email resolution: explicit override > OAuth email > null.
+        const resolvedEmail =
+          args.email_decline === true
+            ? null
+            : (args.email ?? oauthEmail ?? null);
+        const result = await registerInstall({
+          ...args,
+          email: resolvedEmail,
+        });
         return textResult(result);
       } catch (err) {
         return errorResult(err);
@@ -136,19 +190,17 @@ function buildServer(): McpServer {
 }
 
 async function handle(req: Request): Promise<Response> {
-  const auth = checkBearerToken(req);
+  const auth = await verifyMcpAuth(req);
   if (!auth.ok) {
     return unauthorized(auth.reason);
   }
 
   const server = buildServer();
   const transport = new WebStandardStreamableHTTPServerTransport({
-    // Stateless: Vercel serverless instances don't share memory across cold
-    // starts, and the Advisor doesn't need session continuity for these tools.
     sessionIdGenerator: undefined,
   });
   await server.connect(transport);
-  return transport.handleRequest(req);
+  return transport.handleRequest(req, { authInfo: auth.authInfo });
 }
 
 export async function POST(req: NextRequest) {

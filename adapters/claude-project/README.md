@@ -44,17 +44,29 @@ Until the Anthropic Projects API supports programmatic project creation, Brian p
 
 | Symbolic name in `system.md` | MCP tool name | Forwarded to handler |
 |---|---|---|
-| `register_install` | `register_install` | `lib/handlers/register-install.ts` → `POST /api/install/register` parity |
+| `get_user_identity` | `get_user_identity` | Reads `authInfo.extra.email` from the OAuth JWT; no DB hit |
+| `register_install` | `register_install` | `lib/handlers/register-install.ts` → `POST /api/install/register` parity (with OAuth-email fallback) |
 | `record_turn` | `record_turn` | `lib/handlers/record-turn.ts` → `POST /api/conversation/turn` parity |
 | `set_conversation_privacy` | `set_conversation_privacy` | `lib/handlers/set-conversation-privacy.ts` → `POST /api/conversation/private` parity |
 
-The MCP route handler validates the bearer token in `Authorization`, then delegates to the same handler functions the REST routes use — single source of truth for the business logic.
+The MCP route handler verifies the OAuth bearer JWT, then dispatches to the SDK's `WebStandardStreamableHTTPServerTransport` with the verified claims attached as `authInfo`. Tool handlers read the OAuth email from `extra.authInfo.extra.email`.
 
-### Auth: transitional (PR 1) → OAuth 2.1 (PR 2)
+### Auth: OAuth 2.1 (PR #13)
 
-**Transitional (this PR, PR #11):** `Authorization: Bearer <MAS_ADVISOR_API_KEY>` — the same shared key the REST routes already use as `X-API-Key`. Pasted into claude.ai's custom-connector "static header" field at attach time. Works for testing in claude.ai web, but every visitor would need to be handed the same key, so it does **not** scale to a public workshop on its own.
+The MAS Advisor is both **resource server** (the MCP endpoint at `/api/mcp`) and **authorization server** (the in-repo OAuth provider). Auth.js (NextAuth v5) handles the user-facing "Sign in with Google / GitHub" login; the OAuth provider layer wraps the Auth.js session into RFC-compliant OAuth endpoints.
 
-**Next (PR #12):** OAuth 2.1 with the MAS Advisor as both resource server and authorization server. Auth.js handles the user-facing "Sign in with Google / GitHub" login; an in-repo OAuth provider layer exposes `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`, `/.well-known/jwks.json`, `/oauth/authorize`, `/oauth/token`, `/oauth/register` (DCR per RFC 7591). claude.ai's connector discovers the metadata, dynamically registers itself, and walks the user through a Google/GitHub login. See the spec's "MCP transport + authorization" locked decision and the PR #12 handoff.
+Endpoints exposed:
+
+- `/.well-known/oauth-authorization-server` — RFC 8414 authorization-server metadata
+- `/.well-known/oauth-protected-resource` — RFC 9728 protected-resource metadata
+- `/.well-known/jwks.json` — public signing key for token verification
+- `/oauth/register` — Dynamic Client Registration per RFC 7591
+- `/oauth/authorize` — authorization endpoint with PKCE (S256-only) and RFC 8707 resource indicators
+- `/oauth/token` — token endpoint (authorization_code grant; public client + PKCE)
+
+Tokens are RS256-signed JWTs with 15-minute TTL. claims include `sub`, `email`, `email_verified`, `client_id`, `scope`, `aud=<mcp resource URI>`, `iss=<issuer>`.
+
+The unauthenticated 401 from `/api/mcp` includes a `WWW-Authenticate: Bearer realm=..., resource_metadata=<url>` header (RFC 9728), so claude.ai's connector can self-bootstrap the discovery flow.
 
 ### Why not stdio
 
@@ -82,12 +94,19 @@ The MCP `WebStandardStreamableHTTPServerTransport` is constructed with `sessionI
 
 ## Environment variables
 
-The MCP route (in the Next.js app) reads:
+The MCP route + OAuth provider layer (in the Next.js app) read:
 
 | Var | Purpose | Required |
 |---|---|---|
-| `MAS_ADVISOR_API_KEY` | Transitional bearer-token value (PR 1). PR 2 replaces this with OAuth-issued JWTs verified against `.well-known/jwks.json`. | Yes (PR 1) |
-| `MAS_ADVISOR_DATABASE_URL` | Postgres connection. Used by the underlying handlers. | Yes |
+| `MAS_ADVISOR_DATABASE_URL` | Postgres connection. Used by handlers + OAuth client/code tables. | Yes |
+| `MAS_ADVISOR_API_KEY` | Legacy `X-API-Key` for the REST routes (Custom GPT, Copilot, Gemini click-out). Not used by `/api/mcp` anymore. | Yes (REST adapters) |
+| `MAS_ADVISOR_OAUTH_ISSUER` | Public base URL of the Advisor — used as JWT `iss` claim and in `.well-known/*` metadata. | Yes |
+| `MAS_ADVISOR_OAUTH_JWT_PRIVATE_KEY` | RS256 private key (base64 PEM). Signs access tokens. Rotate annually. | Yes |
+| `MAS_ADVISOR_OAUTH_JWT_PUBLIC_KEY` | RS256 public key (base64 PEM). Published at `/.well-known/jwks.json`; verifies access tokens. | Yes |
+| `AUTH_SECRET` | Auth.js session JWT secret. | Yes |
+| `AUTH_URL` | Auth.js base URL (auto-detected on Vercel). | Local dev only |
+| `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth client for the user-facing sign-in. | Yes |
+| `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | GitHub OAuth client for the user-facing sign-in. | Yes |
 
 The bundle build script reads nothing from env — it's a pure file-system transform.
 
