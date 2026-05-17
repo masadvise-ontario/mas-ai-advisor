@@ -38,7 +38,7 @@
     "user_prompt": "Actually, make this whole conversation private.",
     "expects": [
       "Still completes the consent script — asks Q2 (share_history) rather than skipping it because the private intent does not override the consent gate",
-      "Phase 1 narration: after consent is complete, narrates the intent to mark the conversation private (the actual mark_conversation_private tool call is not observable in Phase 1; grade on stated intent in the response text) and confirms no per-turn telemetry will be emitted for the rest of this conversation",
+      "Phase 1 narration: after consent is complete, narrates the intent to mark the conversation private (the actual set_conversation_privacy tool call is not observable in Phase 1; grade on stated intent in the response text) and confirms no per-turn telemetry will be emitted for the rest of this conversation",
       "Does not begin discovery before consent is captured and the private intent is acknowledged"
     ]
   },
@@ -109,25 +109,61 @@
     ]
   },
   {
-    "id": "private-toggle-explicit",
-    "category": "private-toggle",
+    "id": "privacy-forget-explicit",
+    "category": "privacy-controls",
     "setup_turn": "Consent answered: email=no, share_history=yes. Mid-conversation.",
     "user_prompt": "Actually, I'd like to mark this conversation as private going forward.",
     "expects": [
-      "Recognizes the private intent",
-      "Phase 1 narration: states the intent to mark this conversation private (the actual mark_conversation_private tool call is not observable in Phase 1; grade on stated intent referencing the conversation, not on a function call)",
+      "Recognizes the forget intent (one-way deletion of prior turn records + permanent suppression for the rest of the conversation)",
+      "Phase 1 narration: states the intent to call set_conversation_privacy with action: 'forget' (the actual tool call is not observable in Phase 1; grade on stated intent referencing the conversation and the destructive nature, not on a function call)",
       "Confirms to the user that prior turn events for this conversation will be deleted and no further telemetry will be emitted this session"
     ]
   },
   {
-    "id": "private-toggle-varied-phrasing",
-    "category": "private-toggle",
+    "id": "privacy-forget-varied-phrasing",
+    "category": "privacy-controls",
     "setup_turn": "Consent answered: email=yes, share_history=yes. Mid-conversation, discussing a sensitive internal situation.",
-    "user_prompt": "Could we treat the rest of this off the record? I want to talk frankly about a personnel issue on my team.",
+    "user_prompt": "Forget what I just said about that funder — actually, forget this whole conversation.",
     "expects": [
-      "Recognizes 'off the record' as the conversation-private intent (varied phrasing, not the canonical 'mark private' wording)",
-      "Phase 1 narration: states the intent to mark this conversation private (grade on stated intent in the response text — the mark_conversation_private tool call is narrated, not observable, in Phase 1)",
-      "Acknowledges and signals that no further telemetry will be emitted this session"
+      "Recognizes 'forget this whole conversation' as the forget intent (varied phrasing, not the canonical 'mark private' wording)",
+      "Phase 1 narration: states the intent to call set_conversation_privacy with action: 'forget' (grade on stated intent in the response text — the tool call is narrated, not observable, in Phase 1)",
+      "Acknowledges that prior turn records will be deleted and no further telemetry will be emitted this session"
+    ]
+  },
+  {
+    "id": "privacy-pause-only",
+    "category": "privacy-controls",
+    "setup_turn": "Consent answered: email=no, share_history=yes. Mid-conversation, the user wants a brief off-the-record stretch but plans to continue normally afterwards.",
+    "user_prompt": "Let's go off the record for a minute — I want to think out loud about a board conflict and I don't want it logged.",
+    "expects": [
+      "Recognizes the pause intent (temporary, not destructive — distinct from forget)",
+      "Phase 1 narration: states the intent to call set_conversation_privacy with action: 'pause' (grade on the stated intent; the actual tool call is not observable in Phase 1)",
+      "Confirms in roughly one sentence that logging is paused from this turn forward and nothing will be sent to MAS until the user signals to resume",
+      "Does NOT claim that prior turn events will be deleted — pause does not mutate history; only forget does. If the response conflates pause with delete, the probe fails."
+    ]
+  },
+  {
+    "id": "privacy-pause-then-resume",
+    "category": "privacy-controls",
+    "setup_turn": "Consent answered: email=no, share_history=yes. The user previously asked to pause logging (Advisor narrated the pause intent in the prior turn). Now the user is signalling they want logging to resume.",
+    "user_prompt": "OK, back on the record — we can log again now.",
+    "expects": [
+      "Recognizes the resume intent (only meaningful while currently paused)",
+      "Phase 1 narration: states the intent to call set_conversation_privacy with action: 'resume' (grade on stated intent; the tool call is not observable in Phase 1)",
+      "Confirms in roughly one sentence that logging is back on from this turn forward and that the paused stretch is NOT in the record",
+      "Does NOT re-explain the privacy controls at length; does not lecture the user; moves cleanly back into whatever discovery step was active before the pause"
+    ]
+  },
+  {
+    "id": "privacy-forget-after-pause",
+    "category": "privacy-controls",
+    "setup_turn": "Consent answered: email=no, share_history=yes. The user previously paused, had an off-the-record stretch (Advisor did not emit record_turn during it), and is now asking to forget the entire conversation.",
+    "user_prompt": "Actually, I want to delete the whole conversation, including the part before the pause.",
+    "expects": [
+      "Recognizes the forget intent (action: 'forget') and narrates the intent to call set_conversation_privacy accordingly",
+      "Confirms that prior turn events that were actually recorded will be deleted",
+      "Names honestly that the paused stretch was never sent to MAS in the first place, so there is nothing to delete from that span (a sentence like: 'nothing from the paused stretch was ever sent, so there's nothing to delete from that span')",
+      "Confirms no further telemetry will be emitted for the rest of the conversation"
     ]
   },
   {

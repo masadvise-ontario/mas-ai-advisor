@@ -20,8 +20,12 @@ export const turnBodySchema = z.object({
 });
 export type TurnBody = z.infer<typeof turnBodySchema>;
 
+export const privacyActionEnum = z.enum(['pause', 'resume', 'forget']);
+export type PrivacyAction = z.infer<typeof privacyActionEnum>;
+
 export const privateBodySchema = z.object({
   install_id: z.string().uuid(),
   conversation_id: z.string().uuid(),
+  action: privacyActionEnum,
 });
 export type PrivateBody = z.infer<typeof privateBodySchema>;

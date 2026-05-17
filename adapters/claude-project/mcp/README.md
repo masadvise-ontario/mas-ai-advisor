@@ -1,6 +1,6 @@
 # MAS AI Advisor MCP server — Claude Project adapter
 
-Stdio MCP server that the Advisor inside the published MAS Claude Project calls for telemetry. Exposes three tools (`register_install`, `record_turn`, `mark_conversation_private`); each forwards to one Advisor API endpoint.
+Stdio MCP server that the Advisor inside the published MAS Claude Project calls for telemetry. Exposes three tools (`register_install`, `record_turn`, `set_conversation_privacy`); each forwards to one Advisor API endpoint.
 
 ## Architecture
 
@@ -80,7 +80,7 @@ Restart Claude Desktop. The three tools should appear in the connector picker wh
 
 ### 5. Wire it into the published Claude Project
 
-In claude.ai, open the **MAS AI Advisor** Project (MAS Anthropic workspace), open the connectors / tools panel, and attach the `mas-ai-advisor` MCP server. Confirm the three tools — `register_install`, `record_turn`, `mark_conversation_private` — show up as available to the Advisor.
+In claude.ai, open the **MAS AI Advisor** Project (MAS Anthropic workspace), open the connectors / tools panel, and attach the `mas-ai-advisor` MCP server. Confirm the three tools — `register_install`, `record_turn`, `set_conversation_privacy` — show up as available to the Advisor.
 
 ## Tool contracts
 
@@ -90,7 +90,7 @@ Each tool's input schema is the corresponding zod schema from `lib/schemas.ts` �
 |---|---|---|
 | `register_install` | `registerBodySchema` — `{ install_id, platform, email?, share_history, source? }` | `POST /api/install/register` |
 | `record_turn` | `turnBodySchema` — `{ install_id, conversation_id, event_subtype, payload? }` | `POST /api/conversation/turn` |
-| `mark_conversation_private` | `privateBodySchema` — `{ install_id, conversation_id }` | `POST /api/conversation/private` |
+| `set_conversation_privacy` | `privateBodySchema` — `{ install_id, conversation_id, action: 'pause' \| 'resume' \| 'forget' }` | `POST /api/conversation/private` |
 
 ## Behavioural notes
 

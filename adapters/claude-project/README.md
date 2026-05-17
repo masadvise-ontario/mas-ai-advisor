@@ -1,6 +1,6 @@
 # `adapters/claude-project/`
 
-Per-platform adapter that packages the platform-agnostic source-of-truth (`prompts/system.md` + `knowledge/`) into a Claude Project published under the MAS Anthropic workspace, and wires the three Advisor tool calls (`register_install`, `record_turn`, `mark_conversation_private`) to the MAS Advisor API via a small in-repo MCP server.
+Per-platform adapter that packages the platform-agnostic source-of-truth (`prompts/system.md` + `knowledge/`) into a Claude Project published under the MAS Anthropic workspace, and wires the three Advisor tool calls (`register_install`, `record_turn`, `set_conversation_privacy`) to the MAS Advisor API via a small in-repo MCP server.
 
 This is the first of four platform adapters. The Claude Project is the easiest publish path per the [spec](../../../gdrive-brianpkm/3-Resources/mas-ai-advisor-spec.md) (§ "Components / Modules" → "adapters/claude-project/").
 
@@ -40,13 +40,13 @@ Until the Anthropic Projects API supports programmatic project creation, Brian p
 
 ## How the Advisor talks to the API
 
-The system prompt (`prompts/system.md`) references three symbolic tool names: `register_install`, `record_turn`, `mark_conversation_private`. The per-platform adapter is responsible for wiring those names to a concrete call mechanism. For Claude, that mechanism is **MCP tools**:
+The system prompt (`prompts/system.md`) references three symbolic tool names: `register_install`, `record_turn`, `set_conversation_privacy`. The per-platform adapter is responsible for wiring those names to a concrete call mechanism. For Claude, that mechanism is **MCP tools**:
 
 | Symbolic name in `system.md` | MCP tool name | Forwarded to |
 |---|---|---|
 | `register_install` | `register_install` | `POST /api/install/register` |
 | `record_turn` | `record_turn` | `POST /api/conversation/turn` |
-| `mark_conversation_private` | `mark_conversation_private` | `POST /api/conversation/private` |
+| `set_conversation_privacy` | `set_conversation_privacy` | `POST /api/conversation/private` |
 
 The MCP server adds the `X-API-Key` header to every outbound call so the Advisor never sees the secret.
 
