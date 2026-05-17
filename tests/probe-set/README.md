@@ -12,6 +12,7 @@ Regression coverage for the Advisor's behaviour across platforms. Each probe is 
 | `restraint` | 1 | Recommends doing less; names all three cost components explicitly (time, money, AND maintenance); offers two paths on a single use case |
 | `private-toggle` | 2 | Conversation-private intent is recognized in varied phrasings; the tool is called; user is acknowledged |
 | `limits-and-edges` | 2 | The Advisor states the real-data limit and pivots; answers the "are you a real person?" question honestly and offers the engagement path |
+| `memory-leverage` | 2 | Step 6 offer between consent and discovery: when the user pastes a summary the Advisor confirms 1–2 facts, asks 1–3 supplementary questions, and compresses to pattern-match; when the user says "start fresh" the Advisor runs the full five-step discovery |
 
 ## How to run
 
@@ -36,7 +37,7 @@ For interactive role-play discovery — what an automated harness misses. Paste 
 ```jsonc
 {
   "id": "kebab-case-identifier",
-  "category": "consent | discovery-pattern-match | discovery-skip-temptation | restraint | private-toggle | limits-and-edges",
+  "category": "consent | discovery-pattern-match | discovery-skip-temptation | restraint | private-toggle | limits-and-edges | memory-leverage",
   "setup_turn": "Optional prior-conversation state, in plain English",
   "user_prompt": "What the user says this turn",
   "expects": ["Property 1", "Property 2", "..."]
