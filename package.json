@@ -12,7 +12,8 @@
     "test:probes": "tsx --env-file-if-exists=.env.local tests/probe-set/run.ts",
     "typecheck": "tsc --noEmit",
     "bundle:claude-project": "tsx adapters/claude-project/bundle.ts",
-    "mcp:claude-project": "tsx adapters/claude-project/mcp/server.ts"
+    "mcp:claude-project": "tsx adapters/claude-project/mcp/server.ts",
+    "bundle:custom-gpt": "tsx adapters/custom-gpt/bundle.ts"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",

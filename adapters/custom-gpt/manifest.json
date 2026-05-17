@@ -1,0 +1,94 @@
+{
+  "$schema": "./manifest.schema.json",
+  "adapter": "custom-gpt",
+  "platform": "chatgpt",
+  "version": "0.1.0",
+  "publish": {
+    "target": "chatgpt.com (Brian's ChatGPT Plus account)",
+    "gpt_name": "MAS AI Advisor",
+    "mode": "manual",
+    "notes": "Custom GPT publish is a UI flow on chatgpt.com: paste system instructions, upload knowledge files, paste OpenAPI action schema, set API-key auth. Re-evaluate when OpenAI ships one-click Workspace Agents migration (spec § Open Questions)."
+  },
+  "system_prompt": {
+    "source": "prompts/system.md",
+    "strip_frontmatter": true,
+    "output": "system-prompt.md"
+  },
+  "knowledge": {
+    "baked": [
+      {
+        "source": "knowledge/manifest.md",
+        "output": "knowledge/manifest.md",
+        "description": "Manifest of what the knowledge pack contains. Always copied verbatim."
+      }
+    ],
+    "kb_sources_pending": [
+      {
+        "kb_source": "case-study-allard-prize",
+        "description": "Allard Prize case study — pattern: AI watches a list and acts on moments.",
+        "audience_scope": "mas_public"
+      },
+      {
+        "kb_source": "case-study-vc-chatbot",
+        "description": "MAS VC Chatbot case study — pattern: AI as a research partner grounded in your knowledge.",
+        "audience_scope": "mas_public"
+      },
+      {
+        "kb_source": "case-study-klaus",
+        "description": "Klaus case study — pattern: AI as a thin layer on top of your tools, with persistent memory.",
+        "audience_scope": "mas_public"
+      },
+      {
+        "kb_source": "engagement-description",
+        "description": "What a MAS AI engagement looks like — pro bono with invited donation, weeks not months.",
+        "audience_scope": "mas_public"
+      }
+    ],
+    "live_retrieval": [
+      {
+        "kb_source": "ccndr-ai",
+        "tool": "kb_retrieve",
+        "description": "CCNDR — periodic scrape of ai.ccndr.ca, queried at conversation time. Not available in Custom GPT v1 (no per-turn retrieval beyond uploaded files).",
+        "status": "deferred — included as baked snapshot in v1 if needed; live retrieval not available on Custom GPT path."
+      }
+    ]
+  },
+  "action": {
+    "output": "action-schema.json",
+    "openapi_version": "3.1.0",
+    "default_server_url": "https://mas-ai-advisor.vercel.app",
+    "server_url_env": "MAS_ADVISOR_API_BASE_URL",
+    "auth": {
+      "type": "apiKey",
+      "in": "header",
+      "name": "X-API-Key",
+      "notes": "Brian pastes the same shared API key the Vercel deployment validates. Custom GPT Builder stores it server-side; the Advisor never sees it."
+    },
+    "operations": [
+      {
+        "operationId": "register_install",
+        "summary": "Submit first-turn consent answers to the MAS Advisor API.",
+        "method": "POST",
+        "path": "/api/install/register",
+        "request_schema": "registerBodySchema",
+        "proxies": "POST /api/install/register"
+      },
+      {
+        "operationId": "record_turn",
+        "summary": "Emit a per-turn telemetry event under share_history: true.",
+        "method": "POST",
+        "path": "/api/conversation/turn",
+        "request_schema": "turnBodySchema",
+        "proxies": "POST /api/conversation/turn"
+      },
+      {
+        "operationId": "mark_conversation_private",
+        "summary": "Mark this conversation private and delete prior turn events for the conversation_id.",
+        "method": "POST",
+        "path": "/api/conversation/private",
+        "request_schema": "privateBodySchema",
+        "proxies": "POST /api/conversation/private"
+      }
+    ]
+  }
+}
