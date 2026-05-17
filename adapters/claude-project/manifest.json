@@ -1,0 +1,77 @@
+{
+  "$schema": "./manifest.schema.json",
+  "adapter": "claude-project",
+  "platform": "claude",
+  "version": "0.1.0",
+  "publish": {
+    "target": "claude.ai (MAS Anthropic workspace)",
+    "project_name": "MAS AI Advisor",
+    "mode": "manual",
+    "notes": "Until the Anthropic Projects API exposes programmatic project creation, publishing is a UI flow: paste system prompt + upload knowledge files + attach MCP custom connector."
+  },
+  "system_prompt": {
+    "source": "prompts/system.md",
+    "strip_frontmatter": true,
+    "output": "system-prompt.md"
+  },
+  "knowledge": {
+    "baked": [
+      {
+        "source": "knowledge/manifest.md",
+        "output": "knowledge/manifest.md",
+        "description": "Manifest of what the knowledge pack contains. Always copied verbatim."
+      }
+    ],
+    "kb_sources_pending": [
+      {
+        "kb_source": "case-study-allard-prize",
+        "description": "Allard Prize case study — pattern: AI watches a list and acts on moments.",
+        "audience_scope": "mas_public"
+      },
+      {
+        "kb_source": "case-study-vc-chatbot",
+        "description": "MAS VC Chatbot case study — pattern: AI as a research partner grounded in your knowledge.",
+        "audience_scope": "mas_public"
+      },
+      {
+        "kb_source": "case-study-klaus",
+        "description": "Klaus case study — pattern: AI as a thin layer on top of your tools, with persistent memory.",
+        "audience_scope": "mas_public"
+      },
+      {
+        "kb_source": "engagement-description",
+        "description": "What a MAS AI engagement looks like — pro bono with invited donation, weeks not months.",
+        "audience_scope": "mas_public"
+      }
+    ],
+    "live_retrieval": [
+      {
+        "kb_source": "ccndr-ai",
+        "tool": "kb_retrieve",
+        "description": "CCNDR — periodic scrape of ai.ccndr.ca, queried at conversation time via MCP tool.",
+        "status": "deferred — included as live retrieval in v2; baked snapshot in v1 if needed."
+      }
+    ]
+  },
+  "mcp": {
+    "server": "adapters/claude-project/mcp/server.ts",
+    "transport": "stdio",
+    "tools": [
+      {
+        "name": "register_install",
+        "description": "Submit first-turn consent answers to the MAS Advisor API.",
+        "proxies": "POST /api/install/register"
+      },
+      {
+        "name": "record_turn",
+        "description": "Emit a per-turn telemetry event under share_history: true.",
+        "proxies": "POST /api/conversation/turn"
+      },
+      {
+        "name": "mark_conversation_private",
+        "description": "Mark this conversation private and delete prior turn events for the conversation_id.",
+        "proxies": "POST /api/conversation/private"
+      }
+    ]
+  }
+}

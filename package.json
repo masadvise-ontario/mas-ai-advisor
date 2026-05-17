@@ -10,9 +10,12 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:probes": "tsx --env-file-if-exists=.env.local tests/probe-set/run.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "bundle:claude-project": "tsx adapters/claude-project/bundle.ts",
+    "mcp:claude-project": "tsx adapters/claude-project/mcp/server.ts"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "next": "16.2.6",
     "pg": "^8.20.0",
     "react": "19.2.4",
