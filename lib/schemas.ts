@@ -7,6 +7,10 @@ export const registerBodySchema = z.object({
   install_id: z.string().uuid(),
   platform: platformEnum,
   email: z.string().email().nullish(),
+  // Only meaningful for OAuth-protected adapters (MCP): set true to suppress
+  // the OAuth email fallback when the user declined email use. For non-OAuth
+  // adapters, omit this and just pass email=null.
+  email_decline: z.boolean().optional(),
   share_history: z.boolean(),
   source: z.string().nullish(),
 });
