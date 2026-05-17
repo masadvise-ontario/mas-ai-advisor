@@ -27,8 +27,8 @@
     "user_prompt": "Now help me figure out how AI could help my org.",
     "expects": [
       "Proceeds with the discovery flow (consent gate is open even with both no)",
-      "Phase 1 narration: states or signals the intent to record this install with share_history=false and no email — actual tool invocation is not observable in Phase 1, so grade on narrated intent in the response text, not on an emitted function call",
-      "Does not protest, re-ask, or guilt-trip the user about declining both — moves on cleanly"
+      "Does not re-ask, second-guess, or guilt-trip the user about declining both — moves on cleanly",
+      "Does not narrate the telemetry handling to the user (the system prompt is explicit: telemetry is incidental; don't mention it unless asked). Grade for the absence of any 'I'll note that...' / 'I'm recording...' editorializing about the consent decisions"
     ]
   },
   {
