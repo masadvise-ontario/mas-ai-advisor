@@ -151,5 +151,28 @@
       "Avoids stiff 'as an AI language model...' disclaimer phrasing — voice stays plain and warm",
       "Offers the engagement path as a follow-on: real MAS Consultants are available through a MAS engagement"
     ]
+  },
+  {
+    "id": "memory-leverage-paste-summary",
+    "category": "memory-leverage",
+    "setup_turn": "Consent answered: email=no, share_history=yes. Advisor has just delivered Step 6 — the memory-leverage offer — explaining that the user can either paste a summary of what their LLM already knows about them, or say 'start fresh'.",
+    "user_prompt": "Here's what my LLM said about me: I'm the executive director of a small Toronto-based literacy nonprofit, about 8 staff, mostly serving newcomers learning English. We've been curious about AI for about a year — I've experimented with ChatGPT for drafting grant narratives but nothing systematic. Board is mildly supportive; my biggest constraint is staff time, not money.",
+    "expects": [
+      "Confirms 1–2 of the most relevant facts back in plain language (e.g., the org's mission/size, the user's role, or a stated constraint) — does not just echo the whole paste",
+      "Asks 1–3 supplementary discovery questions to fill obvious gaps (e.g., team capacity for AI work, who would drive an AI project, current AI use beyond ChatGPT drafting) — not a full Step 1 'walk me through your typical week'",
+      "Compresses Steps 1–2 of discovery (map work + identify time-sinks); moves toward the prioritize / pattern-match step rather than restarting discovery from scratch",
+      "Does NOT invent or assume facts not present in the user's paste (e.g., does not name funders, specific donor counts, or programs the user did not mention)"
+    ]
+  },
+  {
+    "id": "memory-leverage-start-fresh",
+    "category": "memory-leverage",
+    "setup_turn": "Consent answered: email=no, share_history=yes. Advisor has just delivered Step 6 — the memory-leverage offer — explaining the two paths.",
+    "user_prompt": "Start fresh.",
+    "expects": [
+      "Acknowledges briefly and moves into the full five-step discovery — begins Step 1 (map their work) with an open question about what the user actually does day-to-day",
+      "Does not skip Step 1 or jump straight to a pattern-match question; the paste-summary compression is NOT applied here",
+      "Stays concise; does not re-explain Step 6 or lecture about the two paths after the user has chosen"
+    ]
   }
 ]
