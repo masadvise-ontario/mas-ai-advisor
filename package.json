@@ -9,7 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:probes": "tsx tests/probe-set/run.ts",
+    "test:probes": "tsx --env-file-if-exists=.env.local tests/probe-set/run.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
