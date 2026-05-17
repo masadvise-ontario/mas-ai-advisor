@@ -1,6 +1,6 @@
 # `adapters/claude-project/`
 
-Per-platform adapter that packages the platform-agnostic source-of-truth (`prompts/system.md` + `knowledge/`) into a Claude Project published under the MAS Anthropic workspace, and wires the three Advisor tool calls (`register_install`, `record_turn`, `set_conversation_privacy`) to the MAS Advisor API via a small in-repo MCP server.
+Per-platform adapter that packages the platform-agnostic source-of-truth (`prompts/system.md` + `knowledge/`) into a Claude Project published under the MAS Anthropic workspace. The Project attaches the MAS Advisor's streamable-HTTP MCP endpoint as a custom connector to wire the three Advisor tool calls (`register_install`, `record_turn`, `set_conversation_privacy`).
 
 This is the first of four platform adapters. The Claude Project is the easiest publish path per the [spec](../../../gdrive-brianpkm/3-Resources/mas-ai-advisor-spec.md) (§ "Components / Modules" → "adapters/claude-project/").
 
@@ -15,7 +15,7 @@ build/claude-project/
 └── bundle.json               # provenance: source hashes, build timestamp, manifest pointers
 ```
 
-Brian uploads these to claude.ai manually to create / refresh the published Claude Project (`mas-public-advisor` install scope). The MCP server runs locally on Brian's machine (or on any visitor's machine if they choose to wire it themselves) and proxies the three Advisor tool calls to `https://<deployed-api>/api/...`.
+Brian uploads these to claude.ai manually to create / refresh the published Claude Project (`mas-public-advisor` install scope). The MCP endpoint that backs the three tool calls is served by the same Next.js app as the Advisor API — see [MCP transport](#mcp-transport) below.
 
 ## Build flow
 
@@ -35,55 +35,59 @@ Until the Anthropic Projects API supports programmatic project creation, Brian p
 3. Paste the contents of `build/claude-project/system-prompt.md` into the Project's system instructions field.
 4. Upload every file under `build/claude-project/knowledge/` as Project knowledge files.
 5. Save and confirm the project's shareable link works in an incognito session.
-6. Add the MAS Advisor MCP server as a custom connector (see `mcp/README.md`).
+6. Add the MAS Advisor MCP server as a custom connector. URL: `https://<deployed-advisor>/api/mcp`. Auth: see [MCP transport](#mcp-transport) for the current auth mode.
 7. Persist the install URL in the repo — `pnpm publish:claude-project` will write it to `adapters/claude-project/install-url.txt` once the publish API exists; for v1 paste it in by hand.
 
-## How the Advisor talks to the API
+## MCP transport
 
-The system prompt (`prompts/system.md`) references three symbolic tool names: `register_install`, `record_turn`, `set_conversation_privacy`. The per-platform adapter is responsible for wiring those names to a concrete call mechanism. For Claude, that mechanism is **MCP tools**:
+**Streamable-HTTP** (the current MCP spec's preferred transport), served by the Next.js app at `/api/mcp`. Same Vercel deployment as the API routes. Stateless (no session ID — each tool call is a self-contained JSON-RPC request).
 
-| Symbolic name in `system.md` | MCP tool name | Forwarded to |
+| Symbolic name in `system.md` | MCP tool name | Forwarded to handler |
 |---|---|---|
-| `register_install` | `register_install` | `POST /api/install/register` |
-| `record_turn` | `record_turn` | `POST /api/conversation/turn` |
-| `set_conversation_privacy` | `set_conversation_privacy` | `POST /api/conversation/private` |
+| `register_install` | `register_install` | `lib/handlers/register-install.ts` → `POST /api/install/register` parity |
+| `record_turn` | `record_turn` | `lib/handlers/record-turn.ts` → `POST /api/conversation/turn` parity |
+| `set_conversation_privacy` | `set_conversation_privacy` | `lib/handlers/set-conversation-privacy.ts` → `POST /api/conversation/private` parity |
 
-The MCP server adds the `X-API-Key` header to every outbound call so the Advisor never sees the secret.
+The MCP route handler validates the bearer token in `Authorization`, then delegates to the same handler functions the REST routes use — single source of truth for the business logic.
+
+### Auth: transitional (PR 1) → OAuth 2.1 (PR 2)
+
+**Transitional (this PR, PR #11):** `Authorization: Bearer <MAS_ADVISOR_API_KEY>` — the same shared key the REST routes already use as `X-API-Key`. Pasted into claude.ai's custom-connector "static header" field at attach time. Works for testing in claude.ai web, but every visitor would need to be handed the same key, so it does **not** scale to a public workshop on its own.
+
+**Next (PR #12):** OAuth 2.1 with the MAS Advisor as both resource server and authorization server. Auth.js handles the user-facing "Sign in with Google / GitHub" login; an in-repo OAuth provider layer exposes `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource`, `/.well-known/jwks.json`, `/oauth/authorize`, `/oauth/token`, `/oauth/register` (DCR per RFC 7591). claude.ai's connector discovers the metadata, dynamically registers itself, and walks the user through a Google/GitHub login. See the spec's "MCP transport + authorization" locked decision and the PR #12 handoff.
+
+### Why not stdio
+
+The original v1 adapter (PR #3, deprecated 2026-05-17) wired the MCP server as stdio for Claude Desktop. That doesn't work for claude.ai web — its custom-connector mechanism only accepts remote HTTPS endpoints and will not invoke local processes. Workshop visitors also won't install local tooling. Streamable-HTTP is the only transport that serves both surfaces. (Recorded in spec under the "MCP transport + authorization" locked decision.)
 
 ## Decisions
 
 These are calls made by this adapter that are not unambiguously specified in the spec. Recorded here so a reviewer can challenge them without re-deriving the reasoning.
 
-### Stdio MCP server, not streamable-HTTP
-
-The spec calls for "a small MCP server (in-repo) exposing the three API endpoints as MCP tools" and the brief notes the server runs locally on Brian's machine (or wherever the Claude Project is opened). That maps to **stdio**, which is the path Claude Desktop's custom-MCP-server feature accepts. A streamable-HTTP variant is a future enhancement if the workshop validates the need to support web-Claude visitors who don't run Claude Desktop locally.
-
-**Implication for the workshop:** visitors who install the Claude Project from claude.ai web will see the Advisor's character but will not have working telemetry tool calls unless they also wire the MCP server locally. We accept this gap for v1; the consent script's fail-open behaviour (`share_history: false` if the tool is unreachable) means the conversation still works. The probe-set smoke test (`tests/probe-set/`) is the place to verify this gap is documented per-platform.
-
 ### Bundle is a directory, not a zip
 
 claude.ai requires manual upload via the UI. A directory is easier to inspect, diff, and partially re-upload (one file at a time) than a single zip. Brian can drag-and-drop the directory contents into the Project knowledge UI.
 
-### MCP server shares zod schemas with the API routes
+### MCP server shares zod schemas with the API handlers
 
-The MCP server imports `registerBodySchema`, `turnBodySchema`, `privateBodySchema` from `@/lib/schemas`. Single source of truth for shape validation; if the API contract changes, both sides update together.
+The MCP route imports `registerBodySchema`, `turnBodySchema`, `privateBodySchema` from `@/lib/schemas` and delegates to the same `lib/handlers/*` functions the REST routes use. Single source of truth for shape validation and business logic; if the API contract changes, both sides update together.
 
 ### Knowledge files come from `knowledge/manifest.md` only (for now)
 
 `knowledge/manifest.md` declares what *should* be packaged, but the case-study + engagement-description content lives in the shared pgvector KB under audience `mas_public`. The KB pull is a follow-on task (Phase 2 build pipeline). For this PR, `bundle.ts` copies whatever sits in `knowledge/*.md` verbatim and emits a placeholder list of KB sources to be pulled in. The published Claude Project will have the manifest plus the system prompt, which is sufficient for the discovery method to run; the case studies bake in when the KB pull lands.
 
-### MCP server is `tsx`-run, not compiled
+### Stateless MCP transport, no session ID
 
-Brian runs it locally via `pnpm mcp:claude-project` (which calls `tsx adapters/claude-project/mcp/server.ts`). No build step, no dist directory. If the server ever needs to be distributed via `npx`, the move to a compiled package is a separate task.
+The MCP `WebStandardStreamableHTTPServerTransport` is constructed with `sessionIdGenerator: undefined`. Reasons: Vercel serverless instances don't share memory across cold starts, the Advisor doesn't need session continuity for these three tools, and stateless mode avoids the "session not found" failure mode when a request lands on a different Lambda from the initialization request.
 
 ## Environment variables
 
-The MCP server reads:
+The MCP route (in the Next.js app) reads:
 
 | Var | Purpose | Required |
 |---|---|---|
-| `MAS_ADVISOR_API_KEY` | Shared API key (same value as the Vercel deployment uses). Sent as `X-API-Key` to every API call. | Yes |
-| `MAS_ADVISOR_API_BASE_URL` | Base URL for the deployed MAS Advisor API. Defaults to `http://localhost:3000` for local development. | No |
+| `MAS_ADVISOR_API_KEY` | Transitional bearer-token value (PR 1). PR 2 replaces this with OAuth-issued JWTs verified against `.well-known/jwks.json`. | Yes (PR 1) |
+| `MAS_ADVISOR_DATABASE_URL` | Postgres connection. Used by the underlying handlers. | Yes |
 
 The bundle build script reads nothing from env — it's a pure file-system transform.
 
@@ -91,14 +95,15 @@ The bundle build script reads nothing from env — it's a pure file-system trans
 
 - The system prompt itself — lives in `prompts/system.md`, platform-agnostic.
 - The knowledge pack source content — lives in `knowledge/` and the shared KB.
-- The API implementation — lives in `app/api/...`.
+- The API and MCP route implementations — live in `app/api/...` and `lib/handlers/...`.
 - Per-platform publishing scripts for ChatGPT / Copilot / Gemini — each gets its own adapter in this directory tree.
-- Vercel env wiring or domain configuration — Brian's domain (deployment is out of scope for this PR).
+- Vercel env wiring or domain configuration — out of scope for this PR; tracked in spec "Open questions".
 
 ## References
 
 - Spec § "Components / Modules" → "adapters/claude-project/" — purpose, inputs, outputs.
+- Spec § "Decided / locked in" → "MCP transport + authorization" — transport + auth choice.
 - Spec § "Implementation Plan" → "Phase 2 — Multi-platform publish".
 - `prompts/system.md` — the system prompt this adapter packages.
 - `knowledge/manifest.md` — the content manifest this adapter packages.
-- `mcp/README.md` — install path for the MCP server on Brian's machine.
+- `app/api/mcp/route.ts` — the streamable-HTTP MCP route this adapter targets.
