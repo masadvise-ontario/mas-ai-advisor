@@ -68,8 +68,8 @@
         "proxies": "POST /api/conversation/turn"
       },
       {
-        "name": "mark_conversation_private",
-        "description": "Mark this conversation private and delete prior turn events for the conversation_id.",
+        "name": "set_conversation_privacy",
+        "description": "Set the conversation's privacy state. action: 'pause' stops telemetry until resumed; 'resume' re-enables it; 'forget' deletes prior turn events and stops telemetry permanently for this conversation.",
         "proxies": "POST /api/conversation/private"
       }
     ]

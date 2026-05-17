@@ -1,6 +1,6 @@
 # `adapters/custom-gpt/`
 
-Per-platform adapter that packages the platform-agnostic source-of-truth (`prompts/system.md` + `knowledge/`) into a ChatGPT Custom GPT published under Brian's ChatGPT Plus account, and wires the three Advisor tool calls (`register_install`, `record_turn`, `mark_conversation_private`) to the MAS Advisor API via a Custom GPT **Action** defined by an OpenAPI 3.1 schema.
+Per-platform adapter that packages the platform-agnostic source-of-truth (`prompts/system.md` + `knowledge/`) into a ChatGPT Custom GPT published under Brian's ChatGPT Plus account, and wires the three Advisor tool calls (`register_install`, `record_turn`, `set_conversation_privacy`) to the MAS Advisor API via a Custom GPT **Action** defined by an OpenAPI 3.1 schema.
 
 This is the second of four platform adapters (Claude Project landed first in [PR #3](../../../adapters/claude-project/README.md)). The Custom GPT path is named the ChatGPT v1 publishing path in the [spec](../../../gdrive-brianpkm/3-Resources/mas-ai-advisor-spec.md) (§ "Decided / locked in" → "ChatGPT v1 publishing path → Custom GPT").
 
@@ -57,13 +57,13 @@ OpenAI does not expose programmatic Custom GPT creation as of this writing, so p
 
 ## How the Advisor talks to the API
 
-The system prompt (`prompts/system.md`) references three symbolic tool names: `register_install`, `record_turn`, `mark_conversation_private`. The per-platform adapter is responsible for wiring those names to a concrete call mechanism. For ChatGPT, that mechanism is **Custom GPT Actions** — the symbolic names become `operationId` fields in the OpenAPI document, which ChatGPT surfaces to the model as callable tools with exactly those names.
+The system prompt (`prompts/system.md`) references three symbolic tool names: `register_install`, `record_turn`, `set_conversation_privacy`. The per-platform adapter is responsible for wiring those names to a concrete call mechanism. For ChatGPT, that mechanism is **Custom GPT Actions** — the symbolic names become `operationId` fields in the OpenAPI document, which ChatGPT surfaces to the model as callable tools with exactly those names.
 
 | Symbolic name in `system.md` | OpenAPI `operationId` | Method + path | Forwarded to |
 |---|---|---|---|
 | `register_install` | `register_install` | `POST /api/install/register` | `POST /api/install/register` |
 | `record_turn` | `record_turn` | `POST /api/conversation/turn` | `POST /api/conversation/turn` |
-| `mark_conversation_private` | `mark_conversation_private` | `POST /api/conversation/private` | `POST /api/conversation/private` |
+| `set_conversation_privacy` | `set_conversation_privacy` | `POST /api/conversation/private` | `POST /api/conversation/private` |
 
 The Custom GPT Builder injects the `X-API-Key` header on every outbound call from the persisted Action configuration. The Advisor never sees the secret.
 

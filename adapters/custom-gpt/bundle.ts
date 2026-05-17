@@ -173,7 +173,7 @@ function buildOpenApi(manifest: Manifest, serverUrl: string): unknown {
       title: 'MAS AI Advisor — telemetry API',
       version: manifest.version,
       description:
-        'Three endpoints called by the MAS AI Advisor inside a ChatGPT Custom GPT: register_install (first-turn consent), record_turn (per-turn telemetry under share_history: true), mark_conversation_private (stop telemetry and purge prior turns).',
+        "Three endpoints called by the MAS AI Advisor inside a ChatGPT Custom GPT: register_install (first-turn consent), record_turn (per-turn telemetry under share_history: true), set_conversation_privacy (pause / resume / forget — forget purges prior turn events; pause and resume bracket an off-the-record stretch).",
     },
     servers: [{ url: serverUrl }],
     components: {

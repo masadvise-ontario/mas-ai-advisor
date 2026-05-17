@@ -3,7 +3,7 @@
  *
  * Stdio MCP server that the Advisor inside a Claude Project calls for
  * telemetry. Exposes three tools — register_install, record_turn,
- * mark_conversation_private — each of which proxies a single Advisor API
+ * set_conversation_privacy — each of which proxies a single Advisor API
  * endpoint. The server adds the X-API-Key header so the Advisor never sees
  * the secret.
  *
@@ -135,10 +135,10 @@ async function main(): Promise<void> {
   );
 
   server.registerTool(
-    'mark_conversation_private',
+    'set_conversation_privacy',
     {
       description:
-        'Mark this conversation private. The Advisor calls this when the user signals they want the conversation to stop being recorded. Prior turn events for the conversation_id are deleted server-side; future turn events for the conversation must not be emitted.',
+        "Set the conversation's privacy state. Required `action` field: 'pause' stops telemetry from this turn forward until a resume; 'resume' re-enables telemetry; 'forget' deletes prior turn events for this conversation and stops telemetry permanently. Always include the action — there is no default.",
       inputSchema: privateBodySchema,
     },
     async (args) => callAdvisorApi('/api/conversation/private', args),

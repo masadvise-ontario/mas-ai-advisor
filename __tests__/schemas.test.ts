@@ -96,17 +96,54 @@ describe('turnBodySchema', () => {
 });
 
 describe('privateBodySchema', () => {
-  it('accepts both UUIDs', () => {
+  it('accepts pause action', () => {
+    const result = privateBodySchema.safeParse({
+      install_id: VALID_UUID,
+      conversation_id: VALID_UUID,
+      action: 'pause',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts resume action', () => {
+    const result = privateBodySchema.safeParse({
+      install_id: VALID_UUID,
+      conversation_id: VALID_UUID,
+      action: 'resume',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts forget action', () => {
+    const result = privateBodySchema.safeParse({
+      install_id: VALID_UUID,
+      conversation_id: VALID_UUID,
+      action: 'forget',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects missing action (no default — Advisor must specify pause | resume | forget)', () => {
     const result = privateBodySchema.safeParse({
       install_id: VALID_UUID,
       conversation_id: VALID_UUID,
     });
-    expect(result.success).toBe(true);
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects unknown action', () => {
+    const result = privateBodySchema.safeParse({
+      install_id: VALID_UUID,
+      conversation_id: VALID_UUID,
+      action: 'delete',
+    });
+    expect(result.success).toBe(false);
   });
 
   it('rejects missing conversation_id', () => {
     const result = privateBodySchema.safeParse({
       install_id: VALID_UUID,
+      action: 'forget',
     });
     expect(result.success).toBe(false);
   });
