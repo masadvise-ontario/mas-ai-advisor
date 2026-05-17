@@ -6,11 +6,12 @@ Regression coverage for the Advisor's behaviour across platforms. Each probe is 
 
 | Category | Probes | What it asserts |
 |---|---|---|
-| `consent` | 3 | First-turn consent script is non-skippable, recognizes partial answers, opens the gate when both questions are answered (even both no) |
-| `discovery-pattern-match` | 3 | The Advisor maps user vocabulary to the recognized pattern and surfaces the right case study — Allard Prize, VC Chatbot, Klaus |
+| `consent` | 4 | First-turn consent script is non-skippable, recognizes partial answers, opens the gate when both questions are answered (even both no), and survives a mid-script private-intent interruption (consent completes, then the private toggle is honored) |
+| `discovery-pattern-match` | 4 | The Advisor maps user vocabulary to the recognized pattern and surfaces the right case study — Allard Prize, VC Chatbot, Klaus — and names the pattern *without* inventing a case study when none of the three fits |
 | `discovery-skip-temptation` | 1 | The Advisor refuses to skip discovery even when the user asks to |
-| `restraint` | 1 | Recommends doing less, names the cost framing, offers two paths on a single use case |
+| `restraint` | 1 | Recommends doing less; names all three cost components explicitly (time, money, AND maintenance); offers two paths on a single use case |
 | `private-toggle` | 2 | Conversation-private intent is recognized in varied phrasings; the tool is called; user is acknowledged |
+| `limits-and-edges` | 2 | The Advisor states the real-data limit and pivots; answers the "are you a real person?" question honestly and offers the engagement path |
 
 ## How to run
 
@@ -35,7 +36,7 @@ For interactive role-play discovery — what an automated harness misses. Paste 
 ```jsonc
 {
   "id": "kebab-case-identifier",
-  "category": "consent | discovery-pattern-match | discovery-skip-temptation | restraint | private-toggle",
+  "category": "consent | discovery-pattern-match | discovery-skip-temptation | restraint | private-toggle | limits-and-edges",
   "setup_turn": "Optional prior-conversation state, in plain English",
   "user_prompt": "What the user says this turn",
   "expects": ["Property 1", "Property 2", "..."]
