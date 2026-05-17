@@ -5,9 +5,9 @@ let _pool: Pool | undefined;
 export function getPool(): Pool {
   if (_pool) return _pool;
 
-  const connectionString = process.env.DATABASE_URL;
+  const connectionString = process.env.MAS_ADVISOR_DATABASE_URL;
   if (!connectionString) {
-    throw new Error('DATABASE_URL not set');
+    throw new Error('MAS_ADVISOR_DATABASE_URL not set');
   }
 
   _pool = new Pool({

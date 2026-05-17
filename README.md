@@ -29,7 +29,7 @@ All endpoints require an `X-API-Key` header matching `MAS_ADVISOR_API_KEY`.
 
 ```bash
 pnpm install
-cp .env.example .env.local      # then fill DATABASE_URL + MAS_ADVISOR_API_KEY
+cp .env.example .env.local      # then fill MAS_ADVISOR_DATABASE_URL + MAS_ADVISOR_API_KEY
 pnpm dev                        # http://localhost:3000
 pnpm test                       # vitest run
 pnpm typecheck                  # tsc --noEmit
@@ -40,7 +40,7 @@ pnpm typecheck                  # tsc --noEmit
 Migration `migrations/001_add_install_consent_columns.sql` extends `mas_journey_installs` with `email` + `share_history` columns. Apply against the MAS Postgres database before first deployment:
 
 ```bash
-psql "$DATABASE_URL" -f migrations/001_add_install_consent_columns.sql
+psql "$MAS_ADVISOR_DATABASE_URL" -f migrations/001_add_install_consent_columns.sql
 ```
 
 ## Deployment
