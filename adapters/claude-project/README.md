@@ -107,6 +107,8 @@ The MCP route + OAuth provider layer (in the Next.js app) read:
 | `AUTH_URL` | Auth.js base URL (auto-detected on Vercel). | Local dev only |
 | `AUTH_GOOGLE_ID` / `AUTH_GOOGLE_SECRET` | Google OAuth client for the user-facing sign-in. | Yes |
 | `AUTH_GITHUB_ID` / `AUTH_GITHUB_SECRET` | GitHub OAuth client for the user-facing sign-in. | Yes |
+| `AUTH_MICROSOFT_ENTRA_ID_ID` / `AUTH_MICROSOFT_ENTRA_ID_SECRET` | Microsoft Entra ID app for M365 / personal Microsoft sign-in. | Yes |
+| `AUTH_MICROSOFT_ENTRA_ID_TENANT_ID` | Microsoft tenant scope. `common` for any-tenant + personal; specific tenant GUID for org-only. | Default `common` |
 
 The bundle build script reads nothing from env — it's a pure file-system transform.
 
