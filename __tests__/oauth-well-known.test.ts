@@ -62,9 +62,7 @@ describe('GET /.well-known/oauth-protected-resource', () => {
     expect(res.status).toBe(200);
     const body = (await res.json()) as Record<string, unknown>;
     expect(body.resource).toBe('http://test.local/api/mcp');
-    expect(body.authorization_servers).toEqual([
-      'http://test.local/.well-known/oauth-authorization-server',
-    ]);
+    expect(body.authorization_servers).toEqual(['http://test.local']);
     expect(body.scopes_supported).toEqual(['mas-advisor-mcp']);
   });
 });

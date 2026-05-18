@@ -8,16 +8,20 @@
 import { NextResponse } from 'next/server';
 import {
   OAUTH_SCOPE,
-  getAuthorizationServerMetadataUri,
+  getIssuer,
   getMcpResourceUri,
 } from '@/lib/oauth/config';
 
 export const runtime = 'nodejs';
 
 export function GET() {
+  // Per RFC 9728 §2: authorization_servers is a list of issuer identifiers
+  // (i.e., the issuer base URL, e.g. https://mas-ai-advisor.vercel.app),
+  // NOT the metadata URL. Clients derive the metadata URL themselves by
+  // appending /.well-known/oauth-authorization-server to the issuer.
   const body = {
     resource: getMcpResourceUri(),
-    authorization_servers: [getAuthorizationServerMetadataUri()],
+    authorization_servers: [getIssuer()],
     scopes_supported: [OAUTH_SCOPE],
     bearer_methods_supported: ['header'],
   };
