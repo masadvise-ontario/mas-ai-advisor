@@ -4,6 +4,14 @@
  * Public endpoint — claude.ai (and any other DCR-capable MCP client) POSTs
  * here on first connection to claim a client_id. No auth, no client_secret;
  * public clients only (PKCE protects the flow).
+ *
+ * Per RFC 7591 §3.2.1, when the server doesn't support every requested
+ * grant_type or response_type, it MAY register the client with only the
+ * supported subset and reflect that in the response — we do this rather
+ * than rejecting, so clients like claude.ai (which request `refresh_token`
+ * alongside `authorization_code`) succeed. The actual `refresh_token`
+ * grant attempt would be rejected at /oauth/token; clients infer
+ * "no refresh tokens supported" from this response.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -12,6 +20,9 @@ import { createClient } from '@/lib/oauth/clients';
 import { OAUTH_SCOPE } from '@/lib/oauth/config';
 
 export const runtime = 'nodejs';
+
+const SUPPORTED_GRANT_TYPES = ['authorization_code'] as const;
+const SUPPORTED_RESPONSE_TYPES = ['code'] as const;
 
 const registerSchema = z
   .object({
@@ -32,37 +43,36 @@ function err(status: number, error: string, description: string) {
 }
 
 export async function POST(req: NextRequest) {
-  const parsed = registerSchema.safeParse(
-    await req.json().catch(() => null),
-  );
+  const raw = await req.json().catch(() => null);
+  const parsed = registerSchema.safeParse(raw);
   if (!parsed.success) {
+    // Log the rejection so we can diagnose unexpected client shapes.
+    console.warn('[oauth/register] invalid body', {
+      raw,
+      issues: parsed.error.flatten(),
+    });
     return err(400, 'invalid_client_metadata', 'malformed request body');
   }
   const c = parsed.data;
 
-  if (
-    c.grant_types &&
-    !c.grant_types.every((g) => g === 'authorization_code')
-  ) {
-    return err(
-      400,
-      'invalid_client_metadata',
-      'only the authorization_code grant_type is supported',
-    );
-  }
-  if (c.response_types && !c.response_types.every((r) => r === 'code')) {
-    return err(
-      400,
-      'invalid_client_metadata',
-      'only response_type=code is supported',
-    );
-  }
+  // Filter rather than reject: the client may request grant_types or
+  // response_types we don't support (e.g. refresh_token). We register
+  // them with only the subset we do support; the response reflects that.
+  const grantTypes = (c.grant_types ?? [...SUPPORTED_GRANT_TYPES]).filter(
+    (g) => (SUPPORTED_GRANT_TYPES as readonly string[]).includes(g),
+  );
+  if (grantTypes.length === 0) grantTypes.push('authorization_code');
+
+  const responseTypes = (
+    c.response_types ?? [...SUPPORTED_RESPONSE_TYPES]
+  ).filter((r) => (SUPPORTED_RESPONSE_TYPES as readonly string[]).includes(r));
+  if (responseTypes.length === 0) responseTypes.push('code');
 
   const client = await createClient({
     client_name: c.client_name,
     redirect_uris: c.redirect_uris,
-    grant_types: c.grant_types,
-    response_types: c.response_types,
+    grant_types: grantTypes,
+    response_types: responseTypes,
     scope: c.scope ?? OAUTH_SCOPE,
   });
 
