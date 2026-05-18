@@ -82,15 +82,37 @@ describe('POST /oauth/register (DCR)', () => {
     expect(body.error).toBe('invalid_client_metadata');
   });
 
-  it('rejects an unsupported grant_type with 400', async () => {
+  it('filters unsupported grant_types and registers with the supported subset', async () => {
+    mockPool.query.mockResolvedValueOnce({
+      rowCount: 1,
+      rows: [
+        {
+          client_id: 'mac_xyz',
+          client_name: 'claude.ai',
+          redirect_uris: ['https://claude.ai/cb'],
+          grant_types: ['authorization_code'],
+          response_types: ['code'],
+          token_endpoint_auth_method: 'none',
+          scope: 'mas-advisor-mcp',
+          created_at: new Date(),
+          revoked_at: null,
+        },
+      ],
+    });
+
     const { POST } = await import('@/app/oauth/register/route');
     const res = await POST(
       jsonRequest({
         client_name: 'claude.ai',
         redirect_uris: ['https://claude.ai/cb'],
-        grant_types: ['password'],
+        // claude.ai requests refresh_token alongside authorization_code.
+        // We filter to just authorization_code rather than rejecting.
+        grant_types: ['authorization_code', 'refresh_token'],
+        response_types: ['code'],
       }) as unknown as Parameters<typeof POST>[0],
     );
-    expect(res.status).toBe(400);
+    expect(res.status).toBe(201);
+    const body = (await res.json()) as Record<string, unknown>;
+    expect(body.grant_types).toEqual(['authorization_code']);
   });
 });
