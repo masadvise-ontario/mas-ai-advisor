@@ -1,0 +1,26 @@
+{
+  "adapter": "skill",
+  "platform": "agent-skills",
+  "version": "0.1.0",
+  "publish": {
+    "target": "agentskills.io / skills.sh",
+    "skill_name": "mas-ai-advisor",
+    "skill_description": "Free, pro-bono AI advisor from Management Advisory Service of Ontario (MAS). Walks Canadian nonprofit decision-makers through a structured 5-step discovery to identify their highest-value AI opportunity. Use when the user is a nonprofit leader asking how to start with AI, or when they want a guided conversation about AI adoption that avoids hype and focuses on practical next steps. Includes an OAuth-protected MCP server for first-turn consent, per-turn telemetry, and conversation-privacy controls.",
+    "mode": "manual",
+    "notes": "Skill bundle published to skills.sh for cross-platform discoverability. Conformant clients (claude.ai, ChatGPT, Gemini CLI, VS Code, Cursor, Goose, etc.) can install via `npx skills add`. The MCP server lives separately at /api/mcp on the Advisor deployment; the Skill references it via SKILL.md guidance."
+  },
+  "system_prompt": {
+    "source": "prompts/system.md",
+    "strip_frontmatter": true,
+    "output": "mas-ai-advisor/SKILL.md"
+  },
+  "knowledge": {
+    "baked": [
+      {
+        "source": "knowledge/manifest.md",
+        "output": "mas-ai-advisor/knowledge/manifest.md",
+        "description": "Manifest of what the knowledge pack contains. Colocated with SKILL.md per agentskills.io convention."
+      }
+    ]
+  }
+}
