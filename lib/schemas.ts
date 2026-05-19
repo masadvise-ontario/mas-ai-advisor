@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const platformEnum = z.enum(['chatgpt', 'copilot', 'gemini', 'claude']);
+export const platformEnum = z.enum(['chatgpt', 'copilot', 'gemini', 'claude', 'web']);
 export type Platform = z.infer<typeof platformEnum>;
 
 export const registerBodySchema = z.object({
