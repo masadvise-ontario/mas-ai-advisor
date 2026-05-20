@@ -1,0 +1,133 @@
+<!--
+  MAS AI Advisor — embed snippet for masadvise.org/ai
+
+  Drop this into a Custom HTML widget on the WP page. Replace the
+  RECAPTCHA_SITE_KEY placeholder with the real public site key (matches
+  NEXT_PUBLIC_RECAPTCHA_SITE_KEY on the mas-ai-advisor Vercel project).
+
+  Flow:
+   1. WP page shows the consent form below.
+   2. On submit: client-side reCAPTCHA v3 token fetched, then form POSTs to
+      advisor.masadvise.org/api/chat/session/start with email, share_history,
+      tc_accepted, and recaptcha_token.
+   3. Server replies with { session_token }.
+   4. JS swaps the form for an iframe pointing at
+      advisor.masadvise.org/chat?t=<session_token>.
+   5. Chat page exchanges the token for a session cookie, drops the token
+      from the URL, and renders the chat UI.
+-->
+
+<script src="https://www.google.com/recaptcha/api.js?render=RECAPTCHA_SITE_KEY"></script>
+
+<div id="mas-advisor-mount" style="max-width:760px;margin:0 auto;">
+  <form id="mas-advisor-consent" style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;padding:20px;font-family:system-ui,sans-serif;">
+    <h2 style="margin:0 0 8px;font-size:20px;color:#0f172a;">Before we start</h2>
+    <p style="margin:0 0 16px;font-size:14px;color:#475569;line-height:1.5;">
+      The MAS AI Advisor is free. Tell us how to reach you, what to do with the conversation, and agree to the Terms. Any answer is fine.
+    </p>
+
+    <label style="display:block;margin-bottom:14px;">
+      <span style="display:block;font-size:13px;font-weight:500;color:#334155;margin-bottom:4px;">Email (optional — MAS only uses this for occasional updates and improvements)</span>
+      <input type="email" name="email" autocomplete="email" placeholder="you@yournonprofit.org"
+             style="width:100%;padding:9px 11px;border:1px solid #cbd5e1;border-radius:8px;font-size:15px;font-family:inherit;">
+    </label>
+
+    <label style="display:block;margin-bottom:12px;font-size:14px;color:#334155;">
+      <input type="checkbox" name="share_history" value="1" style="margin-right:6px;">
+      <span>OK to keep a record of our conversation to help MAS improve the tool</span>
+    </label>
+
+    <label style="display:block;margin-bottom:18px;font-size:14px;color:#334155;">
+      <input type="checkbox" name="tc_accepted" value="1" required style="margin-right:6px;">
+      <span>I agree to the <a href="https://masadvise-my.sharepoint.com/:w:/g/personal/brian_flett_masadvise_org/IQD9Z7dy9SeEQpsJp_k0gRAWAYlg7HskfnTf5XqmLQfEDXM?e=emzVZH" target="_blank" rel="noopener">Terms &amp; Conditions</a> <span style="color:#dc2626;">*</span></span>
+    </label>
+
+    <button type="submit" id="mas-advisor-submit"
+            style="width:100%;padding:12px;background:#2563eb;color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:500;cursor:pointer;">
+      Start the conversation
+    </button>
+
+    <p id="mas-advisor-error" style="display:none;margin:12px 0 0;color:#b91c1c;font-size:13px;"></p>
+  </form>
+</div>
+
+<script>
+(function () {
+  var SITE_KEY = '6LehK1ksAAAAACJfv2PIWOZ3ygRCmKBL4fS-FYLM';
+  var API_BASE = 'https://advisor.masadvise.org';
+  var IFRAME_HEIGHT = '720px';
+
+  var form = document.getElementById('mas-advisor-consent');
+  var mount = document.getElementById('mas-advisor-mount');
+  var submitBtn = document.getElementById('mas-advisor-submit');
+  var errEl = document.getElementById('mas-advisor-error');
+
+  function showError(msg) {
+    errEl.textContent = msg;
+    errEl.style.display = 'block';
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Start the conversation';
+  }
+
+  function getRecaptchaToken() {
+    return new Promise(function (resolve, reject) {
+      if (!window.grecaptcha) return reject(new Error('reCAPTCHA not loaded'));
+      window.grecaptcha.ready(function () {
+        window.grecaptcha.execute(SITE_KEY, { action: 'chat_start' }).then(resolve, reject);
+      });
+    });
+  }
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    errEl.style.display = 'none';
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Starting…';
+
+    var data = new FormData(form);
+    var email = (data.get('email') || '').toString().trim() || null;
+    var shareHistory = data.get('share_history') === '1';
+    var tcAccepted = data.get('tc_accepted') === '1';
+
+    if (!tcAccepted) {
+      return showError('You need to agree to the Terms & Conditions to continue.');
+    }
+
+    var token;
+    try {
+      token = await getRecaptchaToken();
+    } catch (err) {
+      return showError('We could not verify your browser. Please reload and try again.');
+    }
+
+    try {
+      var res = await fetch(API_BASE + '/api/chat/session/start', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email,
+          share_history: shareHistory,
+          tc_accepted: tcAccepted,
+          recaptcha_token: token
+        })
+      });
+      var json = await res.json();
+      if (!res.ok || !json.session_token) {
+        if (res.status === 429) return showError('You have already started the maximum number of conversations today. Please come back tomorrow.');
+        if (res.status === 403) return showError('Verification did not pass. Reload the page and try again.');
+        if (res.status === 503) return showError('The advisor is briefly paused while we refresh. Please come back later.');
+        return showError('Could not start your session. Please try again.');
+      }
+
+      // Swap the form for the iframe.
+      var frame = document.createElement('iframe');
+      frame.src = API_BASE + '/chat?t=' + encodeURIComponent(json.session_token);
+      frame.style.cssText = 'width:100%;height:' + IFRAME_HEIGHT + ';border:0;border-radius:12px;background:#fff;';
+      frame.setAttribute('title', 'MAS AI Advisor');
+      mount.replaceChildren(frame);
+    } catch (err) {
+      showError('Network error. Please try again.');
+    }
+  });
+})();
+</script>

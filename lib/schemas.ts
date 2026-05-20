@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-export const platformEnum = z.enum(['chatgpt', 'copilot', 'gemini', 'claude']);
+export const platformEnum = z.enum(['chatgpt', 'copilot', 'gemini', 'claude', 'web']);
 export type Platform = z.infer<typeof platformEnum>;
 
 export const registerBodySchema = z.object({
@@ -13,8 +13,35 @@ export const registerBodySchema = z.object({
   email_decline: z.boolean().optional(),
   share_history: z.boolean(),
   source: z.string().nullish(),
+  // Terms & Conditions version accepted at consent time. Set by the web
+  // chatbot surface (where the WP-side form gates the chat). Left null for
+  // install-elsewhere adapters whose consent script predates the column.
+  tc_version: z.string().nullish(),
 });
 export type RegisterBody = z.infer<typeof registerBodySchema>;
+
+// Body posted to /api/chat/session/start by the WordPress consent form.
+export const chatSessionStartSchema = z.object({
+  email: z.string().email().nullish(),
+  share_history: z.boolean(),
+  tc_accepted: z.boolean(),
+  recaptcha_token: z.string().min(1),
+});
+export type ChatSessionStartBody = z.infer<typeof chatSessionStartSchema>;
+
+// Body posted to /api/chat/turn by the chat UI.
+export const chatTurnSchema = z.object({
+  messages: z
+    .array(
+      z.object({
+        role: z.enum(['user', 'assistant']),
+        content: z.string().min(1).max(4000),
+      }),
+    )
+    .min(1)
+    .max(60),
+});
+export type ChatTurnBody = z.infer<typeof chatTurnSchema>;
 
 export const turnBodySchema = z.object({
   install_id: z.string().uuid(),

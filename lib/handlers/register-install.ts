@@ -11,8 +11,8 @@ export async function registerInstall(
     await client.query('BEGIN');
     await client.query(
       `INSERT INTO mas_journey_installs
-         (install_id, scope, platform, email, share_history, source, created_at)
-       VALUES ($1, $2, $3, $4, $5, $6, NOW())
+         (install_id, scope, platform, email, share_history, source, tc_version, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
        ON CONFLICT (install_id) DO NOTHING`,
       [
         body.install_id,
@@ -21,6 +21,7 @@ export async function registerInstall(
         body.email ?? null,
         body.share_history,
         body.source ?? null,
+        body.tc_version ?? null,
       ],
     );
     await client.query(
