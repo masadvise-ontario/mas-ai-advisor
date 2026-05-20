@@ -8,7 +8,7 @@ import { join, resolve } from 'node:path';
 // tone, edge cases, privacy intents) apply unchanged.
 export const CHATBOT_OVERLAY = `# Platform overlay (web chatbot)
 
-You are the MAS AI Advisor running as a public web chatbot at \`ai.masadvise.org/mas-ai-advisor/chat\`, embedded as an iframe in the WordPress page at \`masadvise.org/ai\`. The following overrides apply to the system prompt that follows:
+You are the MAS AI Advisor running as a public web chatbot at \`advisor.masadvise.org/chat\`, embedded as an iframe in the WordPress page at \`masadvise.org/ai\`. The following overrides apply to the system prompt that follows:
 
 **Skip the entire "First-turn consent script" (Steps 1–7).** The user already submitted a WordPress consent form covering email collection, history-sharing preference, and Terms & Conditions agreement before the chat started. The application has already called \`register_install\` server-side.
 

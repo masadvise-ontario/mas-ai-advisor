@@ -58,7 +58,7 @@ export default async function ChatPage({ searchParams }: PageProps) {
       maxAge: SESSION_COOKIE_MAX_AGE_SECONDS,
     });
     // Strip the token from the URL.
-    redirect('/mas-ai-advisor/chat');
+    redirect('/chat');
   }
 
   // Path 2: arriving with no token — must have a valid session cookie.

@@ -16,7 +16,7 @@ const INITIAL_GREETING: Message = {
 const CAP_HIT_CTA = (
   <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 8 }}>
     <a className="cta-btn primary" href="https://www.masadvise.org/contact-us/" target="_blank" rel="noopener noreferrer">Engage MAS — submit a project request</a>
-    <a className="cta-btn" href="https://masadvise.org/ai" target="_blank" rel="noopener noreferrer">Install the Advisor in your own LLM</a>
+    <a className="cta-btn" href="https://masadvise.org/install-advisor" target="_blank" rel="noopener noreferrer">Install the Advisor in your own LLM</a>
     <a className="cta-btn" href="https://www.masadvise.org/donate/" target="_blank" rel="noopener noreferrer">Support MAS — donate</a>
   </div>
 );

@@ -8,11 +8,11 @@
   Flow:
    1. WP page shows the consent form below.
    2. On submit: client-side reCAPTCHA v3 token fetched, then form POSTs to
-      ai.masadvise.org/api/chat/session/start with email, share_history,
+      advisor.masadvise.org/api/chat/session/start with email, share_history,
       tc_accepted, and recaptcha_token.
    3. Server replies with { session_token }.
    4. JS swaps the form for an iframe pointing at
-      ai.masadvise.org/mas-ai-advisor/chat?t=<session_token>.
+      advisor.masadvise.org/chat?t=<session_token>.
    5. Chat page exchanges the token for a session cookie, drops the token
       from the URL, and renders the chat UI.
 -->
@@ -39,7 +39,7 @@
 
     <label style="display:block;margin-bottom:18px;font-size:14px;color:#334155;">
       <input type="checkbox" name="tc_accepted" value="1" required style="margin-right:6px;">
-      <span>I agree to the <a href="https://www.masadvise.org/terms/" target="_blank" rel="noopener">Terms &amp; Conditions</a> <span style="color:#dc2626;">*</span></span>
+      <span>I agree to the <a href="https://masadvise-my.sharepoint.com/:w:/g/personal/brian_flett_masadvise_org/IQD9Z7dy9SeEQpsJp_k0gRAWAYlg7HskfnTf5XqmLQfEDXM?e=emzVZH" target="_blank" rel="noopener">Terms &amp; Conditions</a> <span style="color:#dc2626;">*</span></span>
     </label>
 
     <button type="submit" id="mas-advisor-submit"
@@ -53,8 +53,8 @@
 
 <script>
 (function () {
-  var SITE_KEY = 'RECAPTCHA_SITE_KEY';
-  var API_BASE = 'https://ai.masadvise.org';
+  var SITE_KEY = '6LehK1ksAAAAACJfv2PIWOZ3ygRCmKBL4fS-FYLM';
+  var API_BASE = 'https://advisor.masadvise.org';
   var IFRAME_HEIGHT = '720px';
 
   var form = document.getElementById('mas-advisor-consent');
@@ -121,7 +121,7 @@
 
       // Swap the form for the iframe.
       var frame = document.createElement('iframe');
-      frame.src = API_BASE + '/mas-ai-advisor/chat?t=' + encodeURIComponent(json.session_token);
+      frame.src = API_BASE + '/chat?t=' + encodeURIComponent(json.session_token);
       frame.style.cssText = 'width:100%;height:' + IFRAME_HEIGHT + ';border:0;border-radius:12px;background:#fff;';
       frame.setAttribute('title', 'MAS AI Advisor');
       mount.replaceChildren(frame);

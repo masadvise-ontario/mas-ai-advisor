@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
       {
         error: 'turn_cap',
         reply:
-          "We've reached the conversation length cap. Three ways to go deeper: (1) engage MAS directly at masadvise.org/contact-us, (2) install the Advisor in your own LLM from masadvise.org/ai, or (3) support MAS at masadvise.org/donate.",
+          "We've reached the conversation length cap. Three ways to go deeper: (1) engage MAS directly at masadvise.org/contact-us, (2) install the Advisor in your own LLM from masadvise.org/install-advisor, or (3) support MAS at masadvise.org/donate.",
       },
       { status: 429 },
     );
