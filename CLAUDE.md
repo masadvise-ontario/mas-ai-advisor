@@ -10,13 +10,20 @@ Reference: @/home/brian/SECURITY.md
 
 ## Project Overview
 
-**Purpose**: Build pipeline + telemetry API for the public-facing MAS AI Advisor (Pattern A flagship per `mas-embedded-advisor-platform.md` in BrianPKM).
+**Purpose**: Web chatbot + telemetry API for the public-facing MAS AI Advisor. The chatbot at `advisor.masadvise.org/chat` (iframed into `masadvise.org/ai`) is the single v1 surface — calls Anthropic via OpenRouter (BYOK on MAS's account).
 
-**Status**: Phase 0 scaffold complete. Three API routes wired; system prompt + per-platform adapters land in Phase 1+.
+**Status (2026-05-22)**:
+- Phase 0 (telemetry API + schemas + migrations) ✅ on main.
+- Phase 1 (system prompt v0 + knowledge manifest + probe-set) ✅ on `claude/mas-ai-advisor-phase-1`.
+- Phase 2 chatbot build (per `mas-ai-chatbot-build-plan.md`) — active. See `claude/chatbot-v1` branch when it lands.
+- **Pattern A install-elsewhere on hold** — Claude Project MCP + OAuth (PRs #12-18), SKILL.md bundle (PR #18), Custom GPT bundle script (PR #6) all shipped to repo but NOT exercised in v1. Do not publish to ChatGPT / Copilot / Gemini / Claude Project platforms without an explicit resume decision. Revisit post-workshop.
 
 **Working Directory**: `/home/brian/workspace/development/mas-ai-advisor`
 
 **Spec (canonical source of truth)**: `~/gdrive-brianpkm/3-Resources/mas-ai-advisor-spec.md`
+**Chatbot build plan**: `~/gdrive-brianpkm/3-Resources/mas-ai-chatbot-build-plan.md`
+
+**Cap-hit CTA**: single button → `masadvise.org/contact-us` (engage MAS). Don't add install-elsewhere or donate buttons to the cap-hit panel — decided 2026-05-22.
 
 ---
 
@@ -40,18 +47,24 @@ pnpm lint
 
 ---
 
-## Architecture
+## Architecture (v1 — chatbot only)
 
-Code-only telemetry API (no n8n in the install path, per MAS exit-readiness preference).
-Postgres tables reused from `mas_journey_*` per BrianPKM `mas-journey-tracking-and-telemetry.md`.
+Code-only chatbot + telemetry API (no n8n, per MAS exit-readiness preference). Postgres tables reused from `mas_journey_*` per BrianPKM `mas-journey-tracking-and-telemetry.md` plus chatbot operational tables (`chatbot_rate_limits`, `chatbot_conversations`, `chatbot_spend`, `chatbot_kill_switch`).
 
 ```
-Advisor inside user's LLM
-  └── per-platform action / MCP tool ──HTTPS──▶ Next.js API ──▶ MAS Postgres
+Visitor on masadvise.org/ai
+  └── WP consent form (email + share_history + T&C + reCAPTCHA v3)
+       └── POST /api/chat/session/start ──▶ session token
+            └── iframe /chat → exchange token for cookie
+                 └── POST /api/chat/turn ──▶ OpenRouter (Haiku 4.5, cache_control) ──▶ MAS Postgres
 ```
 
-Auth: shared API key in `X-API-Key` header, rotated quarterly.
-Deployment target: Vercel.
+Cap-hit experience: single CTA → `masadvise.org/contact-us`.
+
+**Dormant (Pattern A on hold)**: streamable-HTTP MCP server at `/api/mcp` + OAuth 2.1 provider layer in repo for the Claude Project adapter; not exercised in v1.
+
+Auth: shared API key in `X-API-Key` header, rotated quarterly (for telemetry endpoints; the chatbot session uses HMAC-signed session tokens + HttpOnly cookies).
+Deployment target: Vercel. DB role `mas_ai_advisor` against `mas` on `mas-n8n-postgress-db`.
 
 ---
 
