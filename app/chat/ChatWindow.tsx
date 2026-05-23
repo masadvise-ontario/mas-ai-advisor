@@ -7,6 +7,15 @@ interface Message {
   content: string;
 }
 
+type FeedbackRating = 'up' | 'down';
+
+interface FeedbackState {
+  rating?: FeedbackRating;
+  commentOpen?: boolean;
+  comment?: string;
+  submitted?: boolean;
+}
+
 const INITIAL_GREETING: Message = {
   role: 'assistant',
   content:
@@ -56,6 +65,7 @@ export default function ChatWindow() {
   const [modalOpen, setModalOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState<Record<number, FeedbackState>>({});
   const listRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const modalCloseRef = useRef<HTMLButtonElement | null>(null);
@@ -145,6 +155,70 @@ export default function ChatWindow() {
     }
   }, [promptText]);
 
+  // Server-side message index for the assistant message at UI index `i`.
+  // The UI includes INITIAL_GREETING at index 0, but the server doesn't see
+  // it — so server-side index = UI index - 1.
+  function serverMessageIndex(uiIndex: number): number {
+    return uiIndex - 1;
+  }
+
+  function setMessageFeedback(uiIndex: number, patch: Partial<FeedbackState>) {
+    setFeedback((prev) => ({
+      ...prev,
+      [uiIndex]: { ...(prev[uiIndex] ?? {}), ...patch },
+    }));
+  }
+
+  async function submitFeedback(uiIndex: number, rating: FeedbackRating | null, comment: string | null) {
+    try {
+      const res = await fetch('/api/chat/feedback', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          assistant_message_index: serverMessageIndex(uiIndex),
+          rating,
+          comment: comment?.trim() || null,
+        }),
+      });
+      if (!res.ok) {
+        console.warn('[feedback] server returned', res.status);
+        // Fail soft — show "thanks" anyway so the user isn't blocked.
+      }
+    } catch (err) {
+      console.warn('[feedback] network error', err);
+    } finally {
+      setMessageFeedback(uiIndex, { submitted: true, commentOpen: false });
+    }
+  }
+
+  function handleRatingClick(uiIndex: number, rating: FeedbackRating) {
+    const current = feedback[uiIndex];
+    if (current?.submitted) return;
+    setMessageFeedback(uiIndex, { rating, commentOpen: true });
+  }
+
+  function handleCommentClick(uiIndex: number) {
+    const current = feedback[uiIndex];
+    if (current?.submitted) return;
+    setMessageFeedback(uiIndex, { commentOpen: true });
+  }
+
+  function handleCommentSend(uiIndex: number) {
+    const current = feedback[uiIndex] ?? {};
+    submitFeedback(uiIndex, current.rating ?? null, current.comment ?? null);
+  }
+
+  function handleSkipComment(uiIndex: number) {
+    const current = feedback[uiIndex] ?? {};
+    if (current.rating) {
+      // Submit thumbs-only feedback.
+      submitFeedback(uiIndex, current.rating, null);
+    } else {
+      setMessageFeedback(uiIndex, { commentOpen: false });
+    }
+  }
+
   return (
     <div className="mas-chat">
       <header className="mas-chat-header">
@@ -152,17 +226,104 @@ export default function ChatWindow() {
         <span style={{ fontSize: 12, color: '#64748b' }}>Free, pro bono — by MAS, a Canadian charity since 1994</span>
       </header>
       <div ref={listRef} className="mas-chat-list" role="log" aria-live="polite">
-        {messages.map((m, i) => (
-          <div key={i} className={`mas-chat-msg mas-chat-msg-${m.role}`}>
-            <div className="mas-chat-bubble">
-              {m.content.split('\n').map((line, j) => (
-                <p key={j} style={{ margin: j === 0 ? 0 : '0.5em 0 0' }}>
-                  {renderLine(line, `${i}-${j}`)}
-                </p>
-              ))}
+        {messages.map((m, i) => {
+          const isModelAssistant = m.role === 'assistant' && i > 0;
+          const fb = feedback[i] ?? {};
+          return (
+            <div key={i} className={`mas-chat-msg mas-chat-msg-${m.role}`}>
+              <div className="mas-chat-bubble-col">
+                <div className="mas-chat-bubble">
+                  {m.content.split('\n').map((line, j) => (
+                    <p key={j} style={{ margin: j === 0 ? 0 : '0.5em 0 0' }}>
+                      {renderLine(line, `${i}-${j}`)}
+                    </p>
+                  ))}
+                </div>
+                {isModelAssistant && (
+                  <div className="mas-feedback">
+                    {fb.submitted ? (
+                      <span className="mas-feedback-thanks">Thanks for your feedback!</span>
+                    ) : (
+                      <>
+                        <div className="mas-feedback-row">
+                          <button
+                            type="button"
+                            className={`mas-feedback-btn ${fb.rating === 'up' ? 'selected' : ''}`}
+                            onClick={() => handleRatingClick(i, 'up')}
+                            aria-label="Mark this reply as helpful"
+                            title="Helpful"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M7 10v12" />
+                              <path d="M15 5.88 14 10h5.83a2 2 0 0 1 1.92 2.56l-2.33 8A2 2 0 0 1 17.5 22H7" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            className={`mas-feedback-btn ${fb.rating === 'down' ? 'selected' : ''}`}
+                            onClick={() => handleRatingClick(i, 'down')}
+                            aria-label="Mark this reply as not helpful"
+                            title="Not helpful"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M17 14V2" />
+                              <path d="M9 18.12 10 14H4.17a2 2 0 0 1-1.92-2.56l2.33-8A2 2 0 0 1 6.5 2H17" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            className="mas-feedback-btn"
+                            onClick={() => handleCommentClick(i)}
+                            aria-label="Leave a comment about this reply"
+                            title="Leave a comment"
+                          >
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                            </svg>
+                          </button>
+                        </div>
+                        {fb.commentOpen && (
+                          <div className="mas-feedback-comment-row">
+                            <input
+                              type="text"
+                              maxLength={2000}
+                              placeholder="Add a comment (optional)…"
+                              value={fb.comment ?? ''}
+                              onChange={(e) => setMessageFeedback(i, { comment: e.target.value })}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleCommentSend(i);
+                                }
+                              }}
+                              autoFocus
+                            />
+                            <button
+                              type="button"
+                              className="cta-btn primary mas-feedback-send"
+                              onClick={() => handleCommentSend(i)}
+                            >
+                              Send
+                            </button>
+                            {fb.rating && (
+                              <button
+                                type="button"
+                                className="cta-btn mas-feedback-skip"
+                                onClick={() => handleSkipComment(i)}
+                              >
+                                Skip
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
         {sending && (
           <div className="mas-chat-msg mas-chat-msg-assistant">
             <div className="mas-chat-bubble">
@@ -282,7 +443,9 @@ export default function ChatWindow() {
         .mas-chat-msg { display: flex; }
         .mas-chat-msg-assistant { justify-content: flex-start; }
         .mas-chat-msg-user { justify-content: flex-end; }
-        .mas-chat-bubble { max-width: 80%; padding: 10px 14px; border-radius: 14px; line-height: 1.5; font-size: 15px; }
+        .mas-chat-bubble-col { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; max-width: 80%; }
+        .mas-chat-msg-user .mas-chat-bubble-col { align-items: flex-end; }
+        .mas-chat-bubble { padding: 10px 14px; border-radius: 14px; line-height: 1.5; font-size: 15px; }
         .mas-chat-msg-assistant .mas-chat-bubble { background: #f1f5f9; color: #0f172a; border-bottom-left-radius: 4px; }
         .mas-chat-msg-user .mas-chat-bubble { background: #2563eb; color: #fff; border-bottom-right-radius: 4px; }
         .mas-chat-bubble :global(a) { color: #2563eb; text-decoration: underline; text-underline-offset: 2px; }
@@ -297,6 +460,16 @@ export default function ChatWindow() {
         .mas-chat-input button { padding: 0 18px; background: #2563eb; color: #fff; border: none; border-radius: 10px; font-weight: 500; cursor: pointer; }
         .mas-chat-input button:disabled { background: #94a3b8; cursor: not-allowed; }
         .mas-completion-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+        .mas-feedback { display: flex; flex-direction: column; gap: 6px; padding-left: 4px; }
+        .mas-feedback-row { display: flex; gap: 4px; }
+        .mas-feedback-btn { display: inline-flex; align-items: center; justify-content: center; padding: 4px 7px; background: #fff; color: #64748b; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; font-family: inherit; }
+        .mas-feedback-btn:hover { background: #f1f5f9; color: #0f172a; }
+        .mas-feedback-btn.selected { background: #dbeafe; color: #1d4ed8; border-color: #93c5fd; }
+        .mas-feedback-thanks { display: inline-block; font-size: 12px; color: #475569; padding: 4px 2px; }
+        .mas-feedback-comment-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+        .mas-feedback-comment-row input { flex: 1; min-width: 160px; padding: 6px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 13px; outline: none; }
+        .mas-feedback-comment-row input:focus { border-color: #2563eb; }
+        .mas-feedback-send, .mas-feedback-skip { padding: 6px 12px !important; font-size: 12px !important; }
         .mas-modal-backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 50; }
         .mas-modal { background: #fff; border-radius: 14px; box-shadow: 0 20px 50px rgba(15, 23, 42, 0.25); max-width: 720px; width: 100%; max-height: 90vh; display: flex; flex-direction: column; padding: 16px; gap: 10px; }
         .mas-modal-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }

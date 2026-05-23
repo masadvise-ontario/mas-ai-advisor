@@ -60,3 +60,20 @@ export const privateBodySchema = z.object({
   action: privacyActionEnum,
 });
 export type PrivateBody = z.infer<typeof privateBodySchema>;
+
+// Body posted to /api/chat/feedback by the chat UI when a visitor clicks
+// a thumbs button or submits a comment. rating may be null when the user
+// only typed a comment (matching the mas-vc-chatbot UX with three icons:
+// thumbs-up / thumbs-down / comment-only). The CHECK constraint at the
+// DB level requires rating OR comment to be non-null.
+export const chatFeedbackSchema = z
+  .object({
+    assistant_message_index: z.number().int().nonnegative(),
+    rating: z.enum(['up', 'down']).nullable().optional(),
+    comment: z.string().max(2000).nullable().optional(),
+  })
+  .refine(
+    (data) => (data.rating ?? null) !== null || (data.comment ?? '').trim().length > 0,
+    { message: 'rating or comment is required' },
+  );
+export type ChatFeedbackBody = z.infer<typeof chatFeedbackSchema>;

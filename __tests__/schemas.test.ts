@@ -3,6 +3,7 @@ import {
   registerBodySchema,
   turnBodySchema,
   privateBodySchema,
+  chatFeedbackSchema,
 } from '@/lib/schemas';
 
 const VALID_UUID = '550e8400-e29b-41d4-a716-446655440000';
@@ -144,6 +145,65 @@ describe('privateBodySchema', () => {
     const result = privateBodySchema.safeParse({
       install_id: VALID_UUID,
       action: 'forget',
+    });
+    expect(result.success).toBe(false);
+  });
+});
+
+describe('chatFeedbackSchema', () => {
+  it('accepts a thumbs-up with no comment', () => {
+    const result = chatFeedbackSchema.safeParse({
+      assistant_message_index: 1,
+      rating: 'up',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a thumbs-down with comment', () => {
+    const result = chatFeedbackSchema.safeParse({
+      assistant_message_index: 3,
+      rating: 'down',
+      comment: 'too generic',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('accepts a comment-only feedback (no rating)', () => {
+    const result = chatFeedbackSchema.safeParse({
+      assistant_message_index: 5,
+      rating: null,
+      comment: 'love this',
+    });
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects empty payload (no rating + no comment)', () => {
+    const result = chatFeedbackSchema.safeParse({
+      assistant_message_index: 1,
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects whitespace-only comment without rating', () => {
+    const result = chatFeedbackSchema.safeParse({
+      assistant_message_index: 1,
+      comment: '   ',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects unknown rating', () => {
+    const result = chatFeedbackSchema.safeParse({
+      assistant_message_index: 1,
+      rating: 'maybe',
+    });
+    expect(result.success).toBe(false);
+  });
+
+  it('rejects negative message index', () => {
+    const result = chatFeedbackSchema.safeParse({
+      assistant_message_index: -1,
+      rating: 'up',
     });
     expect(result.success).toBe(false);
   });
