@@ -11,6 +11,7 @@ import { verifySessionToken } from '@/lib/chatbot/session-token';
 import { SESSION_COOKIE_NAME } from '@/lib/chatbot/cookies';
 import { detectPrivacyIntent, getConversationPrivacyState } from '@/lib/chatbot/privacy-intent';
 import { getChatbotSystemPrompt, parseSynthesis } from '@/lib/chatbot/system-prompt';
+import { logChatbotMessage, getShareHistory } from '@/lib/chatbot/messages-log';
 
 const SYNTHESIS_MAX_TOKENS = 2500;
 
@@ -104,7 +105,8 @@ export async function POST(req: NextRequest) {
     upstreamCostUsd: completion.usage.upstreamCostUsd,
   }).catch((err) => console.error('[chat/turn] spend write failed', err));
 
-  // Telemetry — only if the conversation isn't paused/forgotten.
+  // Telemetry + message logging — only if the install opted in AND the
+  // conversation isn't paused/forgotten. Both gates apply.
   const privacyState = await getConversationPrivacyState(
     pool,
     session.install_id,
@@ -120,6 +122,31 @@ export async function POST(req: NextRequest) {
         intent: intent ?? undefined,
       },
     }).catch((err) => console.error('[chat/turn] recordTurn failed', err));
+
+    // Per-message logging into chatbot_messages so the actual Q&A is
+    // readable in the DB. Same opt-in gate as recordTurn.
+    const shareHistory = await getShareHistory(pool, session.install_id);
+    if (shareHistory) {
+      // The user's message was the last in the request body; the
+      // assistant's reply is the response we just composed. Compute the
+      // pair of indices based on existing message count.
+      const userMessageIndex = messages.length - 1;
+      const assistantMessageIndex = messages.length;
+      logChatbotMessage(pool, {
+        conversationId: session.conversation_id,
+        installId: session.install_id,
+        messageIndex: userMessageIndex,
+        role: 'user',
+        content: latestUserMessage,
+      }).catch((err) => console.error('[chat/turn] logChatbotMessage user failed', err));
+      logChatbotMessage(pool, {
+        conversationId: session.conversation_id,
+        installId: session.install_id,
+        messageIndex: assistantMessageIndex,
+        role: 'assistant',
+        content: completion.reply,
+      }).catch((err) => console.error('[chat/turn] logChatbotMessage assistant failed', err));
+    }
   }
 
   // Whether forced (cap-hit) or voluntary (LLM produced a USER_PROMPT block
