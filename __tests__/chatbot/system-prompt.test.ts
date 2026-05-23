@@ -2,7 +2,12 @@ import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { mkdtempSync, writeFileSync, mkdirSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { CHATBOT_OVERLAY, getChatbotSystemPrompt } from '@/lib/chatbot/system-prompt';
+import {
+  CHATBOT_OVERLAY,
+  SYNTHESIS_DIRECTIVE,
+  getChatbotSystemPrompt,
+  parseSynthesis,
+} from '@/lib/chatbot/system-prompt';
 
 let root: string;
 
@@ -19,12 +24,12 @@ describe('getChatbotSystemPrompt', () => {
   it('prepends the overlay and strips YAML frontmatter from system.md', () => {
     writeFileSync(
       join(root, 'prompts/system.md'),
-      '---\nversion: 0.1\n---\n\n# Advisor body\n\nDo the discovery.',
+      '---\nversion: 0.2\n---\n\n# Advisor body\n\nDo the discovery.',
     );
     const prompt = getChatbotSystemPrompt({ repoRoot: root, bustCache: true });
     expect(prompt.startsWith(CHATBOT_OVERLAY)).toBe(true);
     expect(prompt).toContain('# Advisor body');
-    expect(prompt).not.toContain('version: 0.1');
+    expect(prompt).not.toContain('version: 0.2');
   });
 
   it('appends knowledge files when knowledge/baked has .md files', () => {
@@ -55,39 +60,82 @@ describe('getChatbotSystemPrompt', () => {
     expect(firstIdx).toBeGreaterThan(-1);
     expect(secondIdx).toBeGreaterThan(firstIdx);
   });
+
+  it('appends the SYNTHESIS_DIRECTIVE when synthesisMode is true', () => {
+    writeFileSync(join(root, 'prompts/system.md'), '# Body\n');
+    const normal = getChatbotSystemPrompt({ repoRoot: root, bustCache: true });
+    const synth = getChatbotSystemPrompt({ repoRoot: root, bustCache: true, synthesisMode: true });
+    expect(normal).not.toContain('SYNTHESIZE NOW');
+    expect(synth.endsWith(SYNTHESIS_DIRECTIVE)).toBe(true);
+    expect(synth).toContain('SYNTHESIZE NOW');
+    expect(synth).toContain('<USER_PROMPT>');
+  });
 });
 
 describe('CHATBOT_OVERLAY content', () => {
-  it('declares itself as overriding the base prompt', () => {
-    expect(CHATBOT_OVERLAY).toMatch(/OVERRIDE the base prompt/i);
-    expect(CHATBOT_OVERLAY).toMatch(/supersede.*Non-negotiable behaviours/i);
+  it('locks the consent-script guardrail', () => {
+    expect(CHATBOT_OVERLAY).toMatch(/Do not run a consent script/i);
+    expect(CHATBOT_OVERLAY).toMatch(/Do not ask for email or history-sharing consent/i);
   });
 
-  it('explicitly disables the first-turn consent script', () => {
-    expect(CHATBOT_OVERLAY).toMatch(/Do NOT run the first-turn consent script/);
-    expect(CHATBOT_OVERLAY).toMatch(/Non-negotiable behaviour #1.*does NOT apply/);
+  it('locks the no-re-welcome guardrail', () => {
+    expect(CHATBOT_OVERLAY).toMatch(/Do not re-introduce yourself/i);
+    expect(CHATBOT_OVERLAY).toMatch(/Do not re-welcome/i);
   });
 
-  it('explicitly disables re-welcoming the user', () => {
-    expect(CHATBOT_OVERLAY).toMatch(/Do not re-introduce yourself/);
-    expect(CHATBOT_OVERLAY).toMatch(/Welcome to the MAS AI Advisor/);
+  it('locks the no-tools guardrail', () => {
+    expect(CHATBOT_OVERLAY).toMatch(/Do not call any tools/i);
+    expect(CHATBOT_OVERLAY).toContain('register_install');
+    expect(CHATBOT_OVERLAY).toContain('get_user_identity');
+  });
+});
+
+describe('parseSynthesis', () => {
+  it('extracts a USER_PROMPT block and returns the surrounding summary', () => {
+    const reply = `Here's the summary of what we discussed.
+
+<USER_PROMPT>
+You are helping me, the ED of Acme Nonprofit.
+Help me draft a list.
+</USER_PROMPT>`;
+    const { summary, prompt } = parseSynthesis(reply);
+    expect(summary).toBe("Here's the summary of what we discussed.");
+    expect(prompt).toContain('You are helping me');
+    expect(prompt).toContain('Help me draft a list.');
   });
 
-  it('disables the "running in your LLM account" framing', () => {
-    expect(CHATBOT_OVERLAY).toMatch(/you live inside your own LLM account/);
-    expect(CHATBOT_OVERLAY).toMatch(/disregard it/i);
+  it('returns the full reply as summary when no USER_PROMPT block is present', () => {
+    const reply = 'Just a summary, no prompt block.';
+    const { summary, prompt } = parseSynthesis(reply);
+    expect(summary).toBe('Just a summary, no prompt block.');
+    expect(prompt).toBeNull();
   });
 
-  it('disables tool calls', () => {
-    expect(CHATBOT_OVERLAY).toMatch(/Do NOT call any tools/);
-    expect(CHATBOT_OVERLAY).toMatch(/register_install/);
-    expect(CHATBOT_OVERLAY).toMatch(/get_user_identity/);
+  it('handles markdown code fences around the USER_PROMPT block', () => {
+    const reply = `Summary here.
+
+\`\`\`
+<USER_PROMPT>
+Prompt body.
+</USER_PROMPT>
+\`\`\``;
+    const { summary, prompt } = parseSynthesis(reply);
+    expect(prompt).toBe('Prompt body.');
+    expect(summary.startsWith('Summary here.')).toBe(true);
   });
 
-  it('specifies the single engage-MAS cap-hit close (no install-elsewhere, no donate)', () => {
-    expect(CHATBOT_OVERLAY).toMatch(/SINGLE call to action/);
-    expect(CHATBOT_OVERLAY).toMatch(/masadvise\.org\/contact-us/);
-    expect(CHATBOT_OVERLAY).toMatch(/Do NOT mention installing the Advisor/);
-    expect(CHATBOT_OVERLAY).toMatch(/Do NOT ask for a donation/);
+  it('strips the prompt block out of the summary cleanly', () => {
+    const reply = `Before.
+
+<USER_PROMPT>
+the prompt
+</USER_PROMPT>
+
+After.`;
+    const { summary, prompt } = parseSynthesis(reply);
+    expect(prompt).toBe('the prompt');
+    expect(summary).toContain('Before.');
+    expect(summary).toContain('After.');
+    expect(summary).not.toContain('USER_PROMPT');
   });
 });

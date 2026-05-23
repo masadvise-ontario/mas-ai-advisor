@@ -16,6 +16,9 @@ export interface ChatCompletionRequest {
   apiKey: string;
   systemText: string;
   messages: ChatMessage[];
+  // Synthesis mode allows the caller to bump max_tokens so the model can
+  // produce a long copy-paste prompt without truncation. Default 800 is fine
+  // for normal turns; synthesis bumps to 2500.
   maxTokens?: number;
   model?: string;
   fetchImpl?: typeof fetch;
