@@ -3,6 +3,9 @@
 **Source value**: `case-study-vc-chatbot`
 **Pattern**: AI as a research partner grounded in your knowledge
 **Audience scope**: `mas_public`
+**Canonical URL**: https://www.npaiadvisor.com/projects/mas-vc-chatbot?source=masadvise
+
+When you surface this case study to the user — in a chat message or in the synthesized prompt's "further reading" section — link to it as a markdown link using the canonical URL above.
 
 ## The organization
 
