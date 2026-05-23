@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { renderMarkdown } from '@/lib/chatbot/markdown';
 
 interface Message {
   role: 'user' | 'assistant';
@@ -22,39 +23,17 @@ const INITIAL_GREETING: Message = {
     "Hi — I'm the MAS AI Advisor. I help nonprofit teams figure out where AI can help them most, then I produce a thorough prompt you can paste into ChatGPT, Claude, Gemini, or whatever AI you use to keep going. Tell me about your nonprofit and what you'd like to use AI for — even if you're not sure yet.",
 };
 
-const CONTACT_URL = 'https://www.masadvise.org/contact-us/';
+// Starter chips shown below the greeting before the first user message.
+// Click → sends the chip text immediately (matches the mas-vc-chatbot
+// pattern). Visible only while the conversation is empty.
+const STARTER_PROMPTS = [
+  'We want to use AI but aren’t sure where to start',
+  'Help me think about AI for donor outreach',
+  'Can AI help us with grant writing?',
+  'What can AI realistically do for a small nonprofit?',
+];
 
-// Parses a single line for inline markdown links of the form
-// [text](https://...) and returns an array of strings and anchor elements.
-// Anchors open in a new tab.
-function renderLine(line: string, keyPrefix: string): React.ReactNode[] {
-  const parts: React.ReactNode[] = [];
-  const linkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g;
-  let lastIndex = 0;
-  let i = 0;
-  let match: RegExpExecArray | null;
-  while ((match = linkRegex.exec(line)) !== null) {
-    if (match.index > lastIndex) {
-      parts.push(line.slice(lastIndex, match.index));
-    }
-    parts.push(
-      <a
-        key={`${keyPrefix}-l${i}`}
-        href={match[2]}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        {match[1]}
-      </a>,
-    );
-    lastIndex = match.index + match[0].length;
-    i += 1;
-  }
-  if (lastIndex < line.length) {
-    parts.push(line.slice(lastIndex));
-  }
-  return parts.length > 0 ? parts : [line];
-}
+const CONTACT_URL = 'https://www.masadvise.org/contact-us/';
 
 export default function ChatWindow() {
   const [messages, setMessages] = useState<Message[]>([INITIAL_GREETING]);
@@ -69,10 +48,34 @@ export default function ChatWindow() {
   const listRef = useRef<HTMLDivElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const modalCloseRef = useRef<HTMLButtonElement | null>(null);
+  const msgRefs = useRef<Array<HTMLDivElement | null>>([]);
+  const prevMessageCount = useRef<number>(messages.length);
 
-  // Scroll the conversation as messages arrive.
+  // Scroll behaviour:
+  // - When the NEW message is from the assistant, scroll so the user's
+  //   prior message sits near the top of the visible area (so the user
+  //   reads the response from the beginning, not the end). Mirrors the
+  //   mas-vc-chatbot widget pattern.
+  // - Otherwise (user sent a message, typing dots), scroll to the bottom.
   useEffect(() => {
-    listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' });
+    const list = listRef.current;
+    if (!list) return;
+    const grew = messages.length > prevMessageCount.current;
+    const latest = messages[messages.length - 1];
+    if (grew && latest && latest.role === 'assistant' && messages.length > 1) {
+      const targetIdx = messages.length - 2;
+      const target = msgRefs.current[targetIdx];
+      if (target) {
+        const listRect = list.getBoundingClientRect();
+        const targetRect = target.getBoundingClientRect();
+        list.scrollTop += targetRect.top - listRect.top - 8;
+      } else {
+        list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' });
+      }
+    } else {
+      list.scrollTo({ top: list.scrollHeight, behavior: 'smooth' });
+    }
+    prevMessageCount.current = messages.length;
   }, [messages, sending]);
 
   // Autofocus the textarea on mount and whenever the assistant finishes a
@@ -94,8 +97,8 @@ export default function ChatWindow() {
     return () => window.removeEventListener('keydown', onKey);
   }, [modalOpen]);
 
-  async function send() {
-    const trimmed = input.trim();
+  async function sendText(text: string) {
+    const trimmed = text.trim();
     if (!trimmed || sending || completed) return;
     setError(null);
     const next: Message[] = [...messages, { role: 'user', content: trimmed }];
@@ -136,11 +139,19 @@ export default function ChatWindow() {
     }
   }
 
+  async function send() {
+    await sendText(input);
+  }
+
   function onKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       send();
     }
+  }
+
+  function onStarterClick(text: string) {
+    sendText(text);
   }
 
   const copyPrompt = useCallback(async () => {
@@ -230,15 +241,15 @@ export default function ChatWindow() {
           const isModelAssistant = m.role === 'assistant' && i > 0;
           const fb = feedback[i] ?? {};
           return (
-            <div key={i} className={`mas-chat-msg mas-chat-msg-${m.role}`}>
+            <div
+              key={i}
+              ref={(el) => {
+                msgRefs.current[i] = el;
+              }}
+              className={`mas-chat-msg mas-chat-msg-${m.role}`}
+            >
               <div className="mas-chat-bubble-col">
-                <div className="mas-chat-bubble">
-                  {m.content.split('\n').map((line, j) => (
-                    <p key={j} style={{ margin: j === 0 ? 0 : '0.5em 0 0' }}>
-                      {renderLine(line, `${i}-${j}`)}
-                    </p>
-                  ))}
-                </div>
+                <div className="mas-chat-bubble">{renderMarkdown(m.content, `msg-${i}`)}</div>
                 {isModelAssistant && (
                   <div className="mas-feedback">
                     {fb.submitted ? (
@@ -324,6 +335,20 @@ export default function ChatWindow() {
             </div>
           );
         })}
+        {messages.length === 1 && !sending && !completed && (
+          <div className="mas-starters" aria-label="Suggested starting points">
+            {STARTER_PROMPTS.map((text, ix) => (
+              <button
+                key={`starter-${ix}`}
+                type="button"
+                className="mas-starter-chip"
+                onClick={() => onStarterClick(text)}
+              >
+                {text}
+              </button>
+            ))}
+          </div>
+        )}
         {sending && (
           <div className="mas-chat-msg mas-chat-msg-assistant">
             <div className="mas-chat-bubble">
@@ -460,6 +485,19 @@ export default function ChatWindow() {
         .mas-chat-input button { padding: 0 18px; background: #2563eb; color: #fff; border: none; border-radius: 10px; font-weight: 500; cursor: pointer; }
         .mas-chat-input button:disabled { background: #94a3b8; cursor: not-allowed; }
         .mas-completion-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 4px; }
+        .mas-starters { display: flex; flex-wrap: wrap; gap: 8px; margin: 2px 0 2px 0; }
+        .mas-starter-chip { padding: 8px 14px; background: #fff; color: #1d4ed8; border: 1px solid #93c5fd; border-radius: 999px; font-family: inherit; font-size: 13px; line-height: 1.3; cursor: pointer; text-align: left; }
+        .mas-starter-chip:hover { background: #eff6ff; border-color: #60a5fa; }
+        .mas-starter-chip:active { background: #dbeafe; }
+        .mas-md-p { margin: 0 0 0.5em 0; }
+        .mas-md-p:last-child { margin-bottom: 0; }
+        .mas-md-h { margin: 0.5em 0 0.25em 0; font-size: 15px; font-weight: 600; }
+        .mas-md-h:first-child { margin-top: 0; }
+        .mas-md-ul, .mas-md-ol { margin: 0.25em 0 0.5em 0; padding-left: 1.4em; }
+        .mas-md-ul:last-child, .mas-md-ol:last-child { margin-bottom: 0; }
+        .mas-md-ul li, .mas-md-ol li { margin: 0.15em 0; }
+        .mas-chat-bubble :global(code) { background: rgba(15, 23, 42, 0.06); padding: 1px 5px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.9em; }
+        .mas-chat-msg-user .mas-chat-bubble :global(code) { background: rgba(255, 255, 255, 0.18); }
         .mas-feedback { display: flex; flex-direction: column; gap: 6px; padding-left: 4px; }
         .mas-feedback-row { display: flex; gap: 4px; }
         .mas-feedback-btn { display: inline-flex; align-items: center; justify-content: center; padding: 4px 7px; background: #fff; color: #64748b; border: 1px solid #e2e8f0; border-radius: 6px; cursor: pointer; font-family: inherit; }
