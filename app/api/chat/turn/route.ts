@@ -10,7 +10,9 @@ import { recordTurnUsage } from '@/lib/chatbot/spend';
 import { verifySessionToken } from '@/lib/chatbot/session-token';
 import { SESSION_COOKIE_NAME } from '@/lib/chatbot/cookies';
 import { detectPrivacyIntent, getConversationPrivacyState } from '@/lib/chatbot/privacy-intent';
-import { getChatbotSystemPrompt } from '@/lib/chatbot/system-prompt';
+import { getChatbotSystemPrompt, parseSynthesis } from '@/lib/chatbot/system-prompt';
+
+const SYNTHESIS_MAX_TOKENS = 2500;
 
 export const runtime = 'nodejs';
 
@@ -74,24 +76,19 @@ export async function POST(req: NextRequest) {
   }
 
   // Turn cap check (after privacy intent so pause/forget don't burn turns).
+  // On cap-hit, we don't refuse the turn — instead we run a one-shot
+  // synthesis call that produces the summary + USER_PROMPT block, and tell
+  // the UI to render the completion experience.
   const turnCheck = await checkAndIncrementTurn(pool, session.conversation_id);
-  if (!turnCheck.ok) {
-    return NextResponse.json(
-      {
-        error: 'turn_cap',
-        reply:
-          "We've reached the conversation length cap for this session. To take this further, submit a request for assistance with MAS at masadvise.org/contact-us — we're happy to keep the conversation going there.",
-      },
-      { status: 429 },
-    );
-  }
+  const synthesisMode = !turnCheck.ok;
 
   let completion: Awaited<ReturnType<typeof chatCompletion>>;
   try {
     completion = await chatCompletion({
       apiKey: openrouterKey,
-      systemText: getChatbotSystemPrompt(),
+      systemText: getChatbotSystemPrompt({ synthesisMode }),
       messages,
+      maxTokens: synthesisMode ? SYNTHESIS_MAX_TOKENS : undefined,
     });
   } catch (err) {
     console.error('[chat/turn] openrouter error', err);
@@ -123,6 +120,16 @@ export async function POST(req: NextRequest) {
         intent: intent ?? undefined,
       },
     }).catch((err) => console.error('[chat/turn] recordTurn failed', err));
+  }
+
+  if (synthesisMode) {
+    const { summary, prompt } = parseSynthesis(completion.reply);
+    return NextResponse.json({
+      reply: summary,
+      prompt_text: prompt,
+      completion: true,
+      turns_remaining: 0,
+    });
   }
 
   return NextResponse.json({
