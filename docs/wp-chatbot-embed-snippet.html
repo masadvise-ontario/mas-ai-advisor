@@ -12,9 +12,9 @@
       tc_accepted, and recaptcha_token.
    3. Server replies with { session_token }.
    4. JS swaps the form for an iframe pointing at
-      advisor.masadvise.org/chat?t=<session_token>.
-   5. Chat page exchanges the token for a session cookie, drops the token
-      from the URL, and renders the chat UI.
+      advisor.masadvise.org/api/chat/session/exchange?t=<session_token>.
+   5. Exchange route verifies the token, writes the session cookie, and 302s
+      to /chat, which renders the chat UI.
 -->
 
 <script src="https://www.google.com/recaptcha/api.js?render=RECAPTCHA_SITE_KEY"></script>
@@ -122,7 +122,7 @@
 
       // Swap the form for the iframe.
       var frame = document.createElement('iframe');
-      frame.src = API_BASE + '/chat?t=' + encodeURIComponent(json.session_token);
+      frame.src = API_BASE + '/api/chat/session/exchange?t=' + encodeURIComponent(json.session_token);
       frame.style.cssText = 'width:100%;height:' + IFRAME_HEIGHT + ';border:0;border-radius:12px;background:#fff;';
       frame.setAttribute('title', 'MAS AI Advisor');
       mount.replaceChildren(frame);
