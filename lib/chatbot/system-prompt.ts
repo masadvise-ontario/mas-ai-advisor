@@ -116,12 +116,7 @@ export function parseSynthesis(reply: string): { summary: string; prompt: string
     return extractFromMatch(reply, encodedMatch);
   }
 
-  // Layer 3: substantial fenced code block. If the LLM dropped the tags
-  // entirely and just put the prompt body in a markdown code fence at
-  // length >= 200 chars, treat that as the synthesis. We only do this if
-  // the code block is the LAST major content in the reply (heuristic for
-  // "this is the prompt at the end of the synthesis"). Avoids false-
-  // positives on small inline code examples in mid-conversation replies.
+  // Layer 3: substantial fenced code block at the end of the reply.
   const fencedMatches = [...reply.matchAll(/```[a-zA-Z0-9_-]*\n([\s\S]*?)\n```/g)];
   if (fencedMatches.length > 0) {
     const last = fencedMatches[fencedMatches.length - 1];
@@ -129,6 +124,24 @@ export function parseSynthesis(reply: string): { summary: string; prompt: string
     const isAtEnd = (last.index ?? 0) + last[0].length >= reply.length - 30;
     if (content.length >= 200 && isAtEnd) {
       return extractFromMatch(reply, last);
+    }
+  }
+
+  // Layer 4: \`---\`-bracketed prompt content. Haiku often drops the tags
+  // entirely and uses horizontal-rule separators around the prompt body.
+  // Heuristic: find content between two `^---$` lines that is >= 200 chars
+  // AND contains a synthesis fingerprint (the MAS contact-us URL, which
+  // the system prompt requires inside every USER_PROMPT block, OR the
+  // standard role-framing opener "You are helping me").
+  const ruleMatch = reply.match(/(?:^|\n)\s*---\s*\n([\s\S]+?)\n\s*---\s*(?:\n|$)/);
+  if (ruleMatch && ruleMatch[1].trim().length >= 200) {
+    const candidate = ruleMatch[1].trim();
+    const looksLikeSynthesis =
+      /https?:\/\/www\.masadvise\.org\/contact-us/i.test(candidate) ||
+      /\byou are helping me\b/i.test(candidate) ||
+      /\byour job\b/i.test(candidate);
+    if (looksLikeSynthesis) {
+      return extractFromMatch(reply, ruleMatch);
     }
   }
 

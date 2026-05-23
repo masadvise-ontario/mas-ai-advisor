@@ -204,4 +204,44 @@ actual prompt body
     const { prompt } = parseSynthesis(reply);
     expect(prompt).toBeNull();
   });
+
+  it('falls back to --- separated content when the LLM uses horizontal rules instead of tags', () => {
+    const reply = [
+      "Perfect. That's everything I need.",
+      '',
+      "Here's the prompt to paste into your AI tool.",
+      '',
+      '---',
+      '',
+      'You are helping me, the ED of a Canadian food bank, design a weekly process for finding food donations. ' +
+        'Sally currently spends hours each week cold-calling 20 donor stores. Help me reduce her calling time. '.repeat(3),
+      '',
+      'If at any point you think I should talk to a human, point me at https://www.masadvise.org/contact-us/.',
+      '',
+      '---',
+      '',
+      "That prompt is ready to paste.",
+    ].join('\n');
+    const { summary, prompt } = parseSynthesis(reply);
+    expect(prompt).toContain('You are helping me');
+    expect(prompt).toContain('masadvise.org/contact-us');
+    expect(summary).toContain("Perfect. That's everything I need.");
+    expect(summary).toContain('That prompt is ready');
+  });
+
+  it('does not false-positive on --- separators when content lacks synthesis fingerprints', () => {
+    const reply = [
+      'Some intro text.',
+      '',
+      '---',
+      '',
+      'A long block of generic content without any synthesis markers, just text. '.repeat(8),
+      '',
+      '---',
+      '',
+      'Closing.',
+    ].join('\n');
+    const { prompt } = parseSynthesis(reply);
+    expect(prompt).toBeNull();
+  });
 });
