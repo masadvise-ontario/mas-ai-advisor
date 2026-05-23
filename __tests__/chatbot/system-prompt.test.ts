@@ -56,3 +56,38 @@ describe('getChatbotSystemPrompt', () => {
     expect(secondIdx).toBeGreaterThan(firstIdx);
   });
 });
+
+describe('CHATBOT_OVERLAY content', () => {
+  it('declares itself as overriding the base prompt', () => {
+    expect(CHATBOT_OVERLAY).toMatch(/OVERRIDE the base prompt/i);
+    expect(CHATBOT_OVERLAY).toMatch(/supersede.*Non-negotiable behaviours/i);
+  });
+
+  it('explicitly disables the first-turn consent script', () => {
+    expect(CHATBOT_OVERLAY).toMatch(/Do NOT run the first-turn consent script/);
+    expect(CHATBOT_OVERLAY).toMatch(/Non-negotiable behaviour #1.*does NOT apply/);
+  });
+
+  it('explicitly disables re-welcoming the user', () => {
+    expect(CHATBOT_OVERLAY).toMatch(/Do not re-introduce yourself/);
+    expect(CHATBOT_OVERLAY).toMatch(/Welcome to the MAS AI Advisor/);
+  });
+
+  it('disables the "running in your LLM account" framing', () => {
+    expect(CHATBOT_OVERLAY).toMatch(/you live inside your own LLM account/);
+    expect(CHATBOT_OVERLAY).toMatch(/disregard it/i);
+  });
+
+  it('disables tool calls', () => {
+    expect(CHATBOT_OVERLAY).toMatch(/Do NOT call any tools/);
+    expect(CHATBOT_OVERLAY).toMatch(/register_install/);
+    expect(CHATBOT_OVERLAY).toMatch(/get_user_identity/);
+  });
+
+  it('specifies the single engage-MAS cap-hit close (no install-elsewhere, no donate)', () => {
+    expect(CHATBOT_OVERLAY).toMatch(/SINGLE call to action/);
+    expect(CHATBOT_OVERLAY).toMatch(/masadvise\.org\/contact-us/);
+    expect(CHATBOT_OVERLAY).toMatch(/Do NOT mention installing the Advisor/);
+    expect(CHATBOT_OVERLAY).toMatch(/Do NOT ask for a donation/);
+  });
+});
