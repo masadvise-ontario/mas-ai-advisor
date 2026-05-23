@@ -166,9 +166,30 @@ export default function ChatWindow() {
             )}
             {promptVisible && promptText && (
               <div className="mas-prompt-output">
-                <p className="mas-prompt-output-label">
-                  Copy this prompt into ChatGPT, Claude, Gemini, or whatever AI you use:
-                </p>
+                <div className="mas-prompt-output-header">
+                  <p className="mas-prompt-output-label">
+                    Paste this into ChatGPT, Claude, Gemini, or whatever AI you use:
+                  </p>
+                  <button
+                    type="button"
+                    className="mas-prompt-copy-btn"
+                    onClick={copyPrompt}
+                    aria-label={copied ? 'Prompt copied to clipboard' : 'Copy prompt to clipboard'}
+                    title={copied ? 'Copied!' : 'Copy to clipboard'}
+                  >
+                    {copied ? (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    ) : (
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                      </svg>
+                    )}
+                    <span className="mas-prompt-copy-label">{copied ? 'Copied!' : 'Copy'}</span>
+                  </button>
+                </div>
                 <textarea
                   id="mas-prompt-output"
                   className="mas-prompt-output-text"
@@ -177,9 +198,6 @@ export default function ChatWindow() {
                   rows={Math.min(20, Math.max(8, promptText.split('\n').length + 1))}
                   onClick={(e) => (e.currentTarget as HTMLTextAreaElement).select()}
                 />
-                <button type="button" className="cta-btn primary" onClick={copyPrompt}>
-                  {copied ? 'Copied!' : 'Copy to clipboard'}
-                </button>
               </div>
             )}
           </div>
@@ -226,7 +244,13 @@ export default function ChatWindow() {
         .mas-completion { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
         .mas-completion-actions { display: flex; flex-direction: column; gap: 8px; }
         .mas-prompt-output { display: flex; flex-direction: column; gap: 8px; padding: 12px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; }
+        .mas-prompt-output-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
         .mas-prompt-output-label { margin: 0; font-size: 13px; color: #475569; }
+        .mas-prompt-copy-btn { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; background: #fff; color: #0f172a; border: 1px solid #cbd5e1; border-radius: 8px; font-family: inherit; font-size: 12px; font-weight: 500; cursor: pointer; flex-shrink: 0; }
+        .mas-prompt-copy-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
+        .mas-prompt-copy-btn:active { background: #e2e8f0; }
+        .mas-prompt-copy-btn svg { display: block; }
+        .mas-prompt-copy-label { line-height: 1; }
         .mas-prompt-output-text { width: 100%; box-sizing: border-box; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.45; background: #fff; color: #0f172a; resize: vertical; }
         .mas-prompt-output-text:focus { outline: 2px solid #2563eb; outline-offset: 1px; }
       `}</style>
