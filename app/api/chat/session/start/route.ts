@@ -67,12 +67,28 @@ export async function POST(req: NextRequest) {
   }
 
   const ipHash = hashIp(ip, salt);
-  const rateCheck = await checkAndIncrementConversation(pool, ipHash);
-  if (!rateCheck.ok) {
-    return NextResponse.json(
-      { error: 'rate_limited', reason: rateCheck.reason },
-      { status: 429 },
-    );
+
+  // Dev bypass: emails listed in CHATBOT_BYPASS_EMAILS (comma-separated,
+  // case-insensitive) skip the per-IP-per-day cap. Lets Brian smoke-test
+  // freely without burning the 5/day production budget. Bypass emails
+  // are case-folded + trimmed for matching.
+  const bypassEmails = (process.env.CHATBOT_BYPASS_EMAILS ?? '')
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter(Boolean);
+  const bypassActive =
+    body.email != null && bypassEmails.includes(body.email.toLowerCase());
+
+  if (bypassActive) {
+    console.info(`[session/start] rate-limit bypass active for ${body.email}`);
+  } else {
+    const rateCheck = await checkAndIncrementConversation(pool, ipHash);
+    if (!rateCheck.ok) {
+      return NextResponse.json(
+        { error: 'rate_limited', reason: rateCheck.reason },
+        { status: 429 },
+      );
+    }
   }
 
   const installId = body.email ? installIdFromEmail(body.email) : anonymousInstallId();
