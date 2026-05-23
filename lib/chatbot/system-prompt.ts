@@ -32,10 +32,10 @@ export const SYNTHESIS_DIRECTIVE = `
 
 The conversation has reached its budget. Produce the synthesis per the **Synthesis** section of the base prompt:
 
-1. A short summary (3-5 sentences of warm prose — focus area, context the user shared, what the prompt below will help them do next, MAS-as-human-help nudge).
-2. The custom prompt wrapped in \`<USER_PROMPT>\` … \`</USER_PROMPT>\` tags.
+1. A short summary (3-5 sentences of warm prose) covering the user's focus area, the context they shared, what the prompt below will help them do next, and a closing sentence that tells them to **click the button below to copy their AI prompt, then paste it into ChatGPT, Claude, or whatever AI tool they use**. Also mention that if they want a real person, they can click Contact MAS.
+2. Immediately after the summary, the custom prompt wrapped in \`<USER_PROMPT>\` … \`</USER_PROMPT>\` tags. The tags must appear on their own lines — do NOT wrap them in triple-backtick markdown code fences. The application strips the tags but leaves any surrounding fences visible to the user, which looks broken.
 
-Do not ask any further questions. Do not extend the conversation. Produce both sections in one reply, in order.
+Do not ask any further questions. Do not extend the conversation past the prompt block. Do not add a "How to use this" section after the prompt — the summary already covers that. Stop after \`</USER_PROMPT>\`.
 `;
 
 let cached: string | undefined;
@@ -95,15 +95,33 @@ function stripYamlFrontmatter(md: string): string {
 // Parses a USER_PROMPT block out of the synthesis reply. Returns the prompt
 // text (without the wrapper tags) and the surrounding summary text (with the
 // USER_PROMPT block stripped). If no block is found, prompt_text is null.
+//
+// The LLM sometimes wraps the USER_PROMPT block in triple-backtick code
+// fences despite the directive telling it not to — so this parser also
+// strips any leftover ``` markers from the summary that would otherwise
+// render as empty code blocks. We strip fences both inside the USER_PROMPT
+// content (in case the LLM wraps the prompt content itself in fences) and
+// in the surrounding summary.
 export function parseSynthesis(reply: string): { summary: string; prompt: string | null } {
   const match = reply.match(/<USER_PROMPT>([\s\S]*?)<\/USER_PROMPT>/);
   if (!match) {
-    return { summary: reply.trim(), prompt: null };
+    return { summary: stripFences(reply.trim()), prompt: null };
   }
-  const prompt = match[1].trim();
-  const summary = (reply.slice(0, match.index) + reply.slice(match.index! + match[0].length))
-    .replace(/```\s*$/, '')
-    .replace(/\n```\s*$/, '')
-    .trim();
+  const promptRaw = match[1].trim();
+  // If the LLM wrapped the prompt content itself in code fences, strip them.
+  const prompt = stripFences(promptRaw).trim();
+  const matchStart = match.index ?? 0;
+  const before = reply.slice(0, matchStart);
+  const after = reply.slice(matchStart + match[0].length);
+  // Strip any leftover ``` markers in the surrounding summary text.
+  const summary = stripFences(before + after).trim();
   return { summary, prompt };
+}
+
+function stripFences(text: string): string {
+  // Remove standalone ``` lines (with optional language tag) and any
+  // adjacent blank lines they leave behind.
+  return text
+    .replace(/^[ \t]*```[a-zA-Z0-9_-]*[ \t]*\n?/gm, '')
+    .replace(/\n{3,}/g, '\n\n');
 }

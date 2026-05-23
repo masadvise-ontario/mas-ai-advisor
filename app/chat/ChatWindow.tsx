@@ -25,7 +25,10 @@ const INITIAL_GREETING: Message = {
 
 // Starter chips shown below the greeting before the first user message.
 // Click → sends the chip text immediately (matches the mas-vc-chatbot
-// pattern). Visible only while the conversation is empty.
+// pattern). Currently disabled (Brian's call 2026-05-23 — may re-enable
+// based on workshop feedback). Render gate is set to false below; the
+// constant is kept so the chips can be re-enabled with a single edit.
+const STARTERS_ENABLED = false;
 const STARTER_PROMPTS = [
   'We want to use AI but aren’t sure where to start',
   'Help me think about AI for donor outreach',
@@ -154,15 +157,41 @@ export default function ChatWindow() {
     sendText(text);
   }
 
+  const [copyFailed, setCopyFailed] = useState(false);
+
   const copyPrompt = useCallback(async () => {
     if (!promptText) return;
+    setCopyFailed(false);
     try {
+      if (!navigator.clipboard?.writeText) throw new Error('clipboard api unavailable');
       await navigator.clipboard.writeText(promptText);
       setCopied(true);
       setTimeout(() => setCopied(false), 2400);
+      return;
     } catch {
+      // Likely cause: iframe lacks `allow="clipboard-write"` permission, or
+      // the browser blocks the clipboard API outside a direct user gesture.
+      // Fallback: select all the text in the textarea so the user can
+      // Ctrl+C / Cmd+C it themselves, and surface a visible hint.
       const ta = document.getElementById('mas-prompt-modal-text') as HTMLTextAreaElement | null;
-      ta?.select();
+      if (ta) {
+        ta.focus();
+        ta.select();
+        // Last-ditch: execCommand('copy') is deprecated but still works in
+        // many browsers when the clipboard API is blocked.
+        try {
+          const ok = document.execCommand('copy');
+          if (ok) {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2400);
+            return;
+          }
+        } catch {
+          /* fall through to hint */
+        }
+      }
+      setCopyFailed(true);
+      setTimeout(() => setCopyFailed(false), 6000);
     }
   }, [promptText]);
 
@@ -335,7 +364,7 @@ export default function ChatWindow() {
             </div>
           );
         })}
-        {messages.length === 1 && !sending && !completed && (
+        {STARTERS_ENABLED && messages.length === 1 && !sending && !completed && (
           <div className="mas-starters" aria-label="Suggested starting points">
             {STARTER_PROMPTS.map((text, ix) => (
               <button
@@ -450,6 +479,11 @@ export default function ChatWindow() {
               </div>
             </div>
             <p className="mas-modal-hint">Paste this into ChatGPT, Claude, Gemini, or whatever AI you use.</p>
+            {copyFailed && (
+              <p className="mas-modal-hint mas-modal-hint-warn">
+                Your browser blocked auto-copy. The prompt is selected below — press <kbd>Ctrl</kbd>+<kbd>C</kbd> (or <kbd>⌘</kbd>+<kbd>C</kbd> on Mac) to copy it manually.
+              </p>
+            )}
             <textarea
               id="mas-prompt-modal-text"
               className="mas-modal-text"
@@ -519,6 +553,8 @@ export default function ChatWindow() {
         .mas-icon-btn svg { display: block; }
         .mas-icon-btn-label { line-height: 1; }
         .mas-modal-hint { margin: 0; font-size: 13px; color: #475569; }
+        .mas-modal-hint-warn { padding: 8px 10px; background: #fef3c7; border: 1px solid #fcd34d; border-radius: 8px; color: #78350f; }
+        .mas-modal-hint kbd { display: inline-block; padding: 1px 6px; background: #fff; border: 1px solid #cbd5e1; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
         .mas-modal-text { flex: 1; width: 100%; box-sizing: border-box; min-height: 240px; padding: 12px; border: 1px solid #cbd5e1; border-radius: 10px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; line-height: 1.5; background: #f8fafc; color: #0f172a; resize: vertical; }
         .mas-modal-text:focus { outline: 2px solid #2563eb; outline-offset: 1px; }
       `}</style>
