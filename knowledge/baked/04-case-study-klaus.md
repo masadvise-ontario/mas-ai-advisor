@@ -3,6 +3,9 @@
 **Source value**: `case-study-klaus`
 **Pattern**: AI as a thin layer on top of your tools, with persistent memory
 **Audience scope**: `mas_public`
+**Canonical URL**: https://www.npaiadvisor.com/projects/klaus-personal-assistant?source=masadvise
+
+When you surface this case study to the user — in a chat message or in the synthesized prompt's "further reading" section — link to it as a markdown link using the canonical URL above.
 
 ## The story
 

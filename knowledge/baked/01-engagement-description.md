@@ -2,6 +2,10 @@
 
 **Source value**: `engagement-description`
 **Audience scope**: `mas_public`
+**Contact URL**: https://www.masadvise.org/contact-us/
+**About MAS**: https://www.masadvise.org/about/
+
+When you direct the user to MAS for human help — in a chat message, in the synthesized prompt's MAS-fallback line, or anywhere else — use the Contact URL above as a markdown link.
 
 Management Advisory Service (MAS) is a Canadian-charter charity that has supported the nonprofit sector since 1994. About one hundred senior business volunteers ("Volunteer Consultants" or VCs) donate their time to small nonprofits that can't afford management consulting. The areas MAS works in are strategic planning, fundraising, governance, communications, operations — and, increasingly, AI adoption.
 

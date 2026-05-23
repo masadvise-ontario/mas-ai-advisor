@@ -14,23 +14,38 @@ Packaged into each platform artifact at build time. Small, slow-changing, worth 
 
 ### Case studies
 
-Each case study is a single document in the shared KB. The build pipeline pulls the latest version at build time.
+Each case study is a single document. Each file's frontmatter includes a `**Canonical URL**` field — the chatbot uses that URL when surfacing the case study as a markdown link.
 
-| Case study | Pattern it teaches | KB source value |
-|---|---|---|
-| Allard Prize | AI watches a list and acts on moments | `case-study-allard-prize` |
-| MAS VC Chatbot | AI as a research partner grounded in your knowledge | `case-study-vc-chatbot` |
-| Klaus | AI as a thin layer on top of your tools, with persistent memory | `case-study-klaus` |
+| Case study | Pattern it teaches | KB source value | Canonical URL |
+|---|---|---|---|
+| Allard Prize | AI watches a list and acts on moments | `case-study-allard-prize` | `npaiadvisor.com/projects/allard-prize?source=masadvise` |
+| MAS VC Chatbot | AI as a research partner grounded in your knowledge | `case-study-vc-chatbot` | `npaiadvisor.com/projects/mas-vc-chatbot?source=masadvise` |
+| Klaus | AI as a thin layer on top of your tools, with persistent memory | `case-study-klaus` | `npaiadvisor.com/projects/klaus-personal-assistant?source=masadvise` |
 
-Future case studies are added when an engagement passes the publication readiness gate (`mas-ai-landing-page.md`). Adding one is a manifest edit + a rebuild — no code change.
+Future case studies are added when an engagement passes the publication readiness gate (`mas-ai-landing-page.md`). Adding one is a manifest edit + a new file under `knowledge/baked/` + a rebuild — no code change.
 
 ### MAS engagement description
 
-What a MAS AI build looks like — pro bono with an invited donation, weeks not months, scoped use cases, two-paths framing.
+What a MAS AI build looks like — pro bono with an invited donation, weeks not months, scoped use cases, two-paths framing. Includes the Contact URL the chatbot uses when directing users to a MAS human.
 
 | KB source value |
 |---|
 | `engagement-description` |
+
+### MAS resources surfaced on masadvise.org/ai (added 2026-05-23)
+
+Pointers to MAS-authored reading + the broader MAS service catalog. The chatbot surfaces these in chat replies and in the synthesized prompt's "further reading" section when relevant.
+
+| Resource | Type | KB source value |
+|---|---|---|
+| Blog: AI for Nonprofits — Getting Started | blog post | `resource-blog-ai-getting-started` |
+| Blog: AI for Nonprofits — Advanced Techniques | blog post | `resource-blog-ai-advanced-techniques` |
+| Whitepaper: AI for Analytics and Answers in Finance | PDF on SharePoint | `resource-whitepaper-ai-analytics-finance` |
+| Whitepaper: How to Leverage AI in Strategic Planning | PDF on SharePoint | `resource-whitepaper-ai-strategic-planning` |
+| Webinar: Practical Use of AI for Nonprofits | video on SharePoint | `resource-webinar-practical-ai` |
+| MAS services overview (for non-AI deflection) | URL table | `resource-mas-services-overview` |
+
+These are baked-in lightweight files — each is a metadata stub describing when the chatbot should recommend the resource, plus the canonical URL. The chatbot doesn't have the resource content itself; it just knows the URL and the use-case description.
 
 ## Live retrieval
 
