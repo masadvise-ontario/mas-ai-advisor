@@ -122,11 +122,25 @@ export async function POST(req: NextRequest) {
     }).catch((err) => console.error('[chat/turn] recordTurn failed', err));
   }
 
-  if (synthesisMode) {
-    const { summary, prompt } = parseSynthesis(completion.reply);
+  // Whether forced (cap-hit) or voluntary (LLM produced a USER_PROMPT block
+  // mid-conversation because it had enough context), the synthesis closes
+  // the conversation. The model is instructed to synthesize on its own as
+  // soon as it has enough.
+  const { summary, prompt } = parseSynthesis(completion.reply);
+  if (prompt) {
     return NextResponse.json({
       reply: summary,
       prompt_text: prompt,
+      completion: true,
+      turns_remaining: 0,
+    });
+  }
+
+  // Cap-hit synthesis call returned no USER_PROMPT (LLM didn't comply).
+  // Surface the raw reply so the user isn't left with a blank message.
+  if (synthesisMode) {
+    return NextResponse.json({
+      reply: completion.reply,
       completion: true,
       turns_remaining: 0,
     });
