@@ -138,4 +138,42 @@ After.`;
     expect(summary).toContain('After.');
     expect(summary).not.toContain('USER_PROMPT');
   });
+
+  it('strips leftover code fences when the LLM wraps the USER_PROMPT block in triple-backticks', () => {
+    const reply = `Here's the summary.
+
+\`\`\`
+<USER_PROMPT>
+the prompt body
+</USER_PROMPT>
+\`\`\`
+
+How to use it: paste away.`;
+    const { summary, prompt } = parseSynthesis(reply);
+    expect(prompt).toBe('the prompt body');
+    expect(summary).toContain("Here's the summary.");
+    expect(summary).toContain('How to use it');
+    expect(summary).not.toContain('```');
+  });
+
+  it('strips fences inside the USER_PROMPT content if the LLM nested them', () => {
+    const reply = `Summary.
+
+<USER_PROMPT>
+\`\`\`
+actual prompt body
+\`\`\`
+</USER_PROMPT>`;
+    const { prompt } = parseSynthesis(reply);
+    expect(prompt).toBe('actual prompt body');
+    expect(prompt).not.toContain('```');
+  });
+
+  it('strips fences from the summary even when no USER_PROMPT block is present', () => {
+    const reply = `\`\`\`\nfree text\n\`\`\``;
+    const { summary, prompt } = parseSynthesis(reply);
+    expect(prompt).toBeNull();
+    expect(summary).toContain('free text');
+    expect(summary).not.toContain('```');
+  });
 });

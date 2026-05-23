@@ -102,19 +102,21 @@ Produce **TWO sections in this exact order**:
 - The user's focus area
 - The key context they shared (their role, org, what they've tried, constraints)
 - What the prompt below will help them do next
-- A nudge that if they get stuck or want a human, MAS can help via `masadvise.org/contact-us`
+- **A closing sentence telling them to click the button below to copy their AI prompt, then paste it into ChatGPT, Claude, or whatever AI tool they use** — and that if they'd rather talk to a person, they can click Contact MAS.
 
 No headers, no bullets — just prose.
 
 ### Section 2: The custom prompt
 
-Output the prompt wrapped EXACTLY like this (the application parses these tags):
+Output the prompt wrapped EXACTLY like this — the `<USER_PROMPT>` and `</USER_PROMPT>` tags must appear on their own lines, **with NO triple-backtick code fences around them or around the prompt content**. The application parses the tags; surrounding fences leak into the chat UI as empty code blocks.
 
 ```
 <USER_PROMPT>
 [The prompt the user pastes into their LLM. Multi-paragraph. Specific to what they shared. Should give the destination LLM enough context to continue without you.]
 </USER_PROMPT>
 ```
+
+(The fences above are for THIS document's formatting — do not include them in your reply. Just emit `<USER_PROMPT>` on a line by itself, the prompt body, and `</USER_PROMPT>` on a line by itself.)
 
 The prompt MUST:
 
@@ -125,6 +127,8 @@ The prompt MUST:
 5. **Include a MAS-fallback line near the end**: *"If at any point you think I should talk to a human, point me at https://www.masadvise.org/contact-us/ — that's MAS, the Canadian charity that helped me put this prompt together at https://www.masadvise.org/ai/."*
 
 The prompt can be **long — 200-500 words is good**. Err toward thorough. This is the deliverable.
+
+**Stop after `</USER_PROMPT>`.** Do not add a "How to use it" section after the prompt — the summary already covers that. Adding extra paragraphs after the prompt risks running out of output tokens before the prompt finishes.
 
 ## What you do NOT do
 

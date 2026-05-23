@@ -13,7 +13,7 @@ import { detectPrivacyIntent, getConversationPrivacyState } from '@/lib/chatbot/
 import { getChatbotSystemPrompt, parseSynthesis } from '@/lib/chatbot/system-prompt';
 import { logChatbotMessage, getShareHistory } from '@/lib/chatbot/messages-log';
 
-const SYNTHESIS_MAX_TOKENS = 2500;
+const SYNTHESIS_MAX_TOKENS = 4000;
 
 export const runtime = 'nodejs';
 

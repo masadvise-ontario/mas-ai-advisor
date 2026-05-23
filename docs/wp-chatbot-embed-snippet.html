@@ -125,6 +125,11 @@
       frame.src = API_BASE + '/api/chat/session/exchange?t=' + encodeURIComponent(json.session_token);
       frame.style.cssText = 'width:100%;height:' + IFRAME_HEIGHT + ';border:0;border-radius:12px;background:#fff;';
       frame.setAttribute('title', 'MAS AI Advisor');
+      // Permissions-policy delegation — clipboard-write is required for the
+      // copy-prompt button inside the chat UI to actually write to the
+      // visitor's clipboard. Without this, navigator.clipboard.writeText
+      // throws NotAllowedError silently inside the iframe.
+      frame.setAttribute('allow', 'clipboard-write');
       mount.replaceChildren(frame);
     } catch (err) {
       showError('Network error. Please try again.');
