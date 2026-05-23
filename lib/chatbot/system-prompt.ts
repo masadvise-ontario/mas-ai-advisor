@@ -92,28 +92,59 @@ function stripYamlFrontmatter(md: string): string {
   return md.slice(end + 5).replace(/^\n+/, '');
 }
 
-// Parses a USER_PROMPT block out of the synthesis reply. Returns the prompt
-// text (without the wrapper tags) and the surrounding summary text (with the
-// USER_PROMPT block stripped). If no block is found, prompt_text is null.
+// Parses the assistant's reply for the synthesized "USER prompt" content
+// the visitor will copy into ChatGPT/Claude/etc. Returns the surrounding
+// summary text (with the prompt block stripped) plus the prompt itself.
 //
-// The LLM sometimes wraps the USER_PROMPT block in triple-backtick code
-// fences despite the directive telling it not to — so this parser also
-// strips any leftover ``` markers from the summary that would otherwise
-// render as empty code blocks. We strip fences both inside the USER_PROMPT
-// content (in case the LLM wraps the prompt content itself in fences) and
-// in the surrounding summary.
+// Match strategy is layered — the primary format is the canonical
+// `<USER_PROMPT>...</USER_PROMPT>` tag, but the LLM doesn't always comply
+// (sometimes it html-encodes the tags, sometimes it omits them and just
+// emits a code block). Each layer is increasingly lenient. We only return
+// a non-null prompt when we're confident the content is a synthesis,
+// otherwise the conversation continues normally.
 export function parseSynthesis(reply: string): { summary: string; prompt: string | null } {
-  const match = reply.match(/<USER_PROMPT>([\s\S]*?)<\/USER_PROMPT>/);
-  if (!match) {
-    return { summary: stripFences(reply.trim()), prompt: null };
+  // Layer 1: canonical <USER_PROMPT>...</USER_PROMPT> tags.
+  const tagMatch = reply.match(/<USER_PROMPT>([\s\S]*?)<\/USER_PROMPT>/);
+  if (tagMatch) {
+    return extractFromMatch(reply, tagMatch);
   }
+
+  // Layer 2: html-encoded tags. Some LLMs escape `<` to `&lt;` because they
+  // expect the user to see them.
+  const encodedMatch = reply.match(/&lt;USER_PROMPT&gt;([\s\S]*?)&lt;\/USER_PROMPT&gt;/);
+  if (encodedMatch) {
+    return extractFromMatch(reply, encodedMatch);
+  }
+
+  // Layer 3: substantial fenced code block. If the LLM dropped the tags
+  // entirely and just put the prompt body in a markdown code fence at
+  // length >= 200 chars, treat that as the synthesis. We only do this if
+  // the code block is the LAST major content in the reply (heuristic for
+  // "this is the prompt at the end of the synthesis"). Avoids false-
+  // positives on small inline code examples in mid-conversation replies.
+  const fencedMatches = [...reply.matchAll(/```[a-zA-Z0-9_-]*\n([\s\S]*?)\n```/g)];
+  if (fencedMatches.length > 0) {
+    const last = fencedMatches[fencedMatches.length - 1];
+    const content = last[1].trim();
+    const isAtEnd = (last.index ?? 0) + last[0].length >= reply.length - 30;
+    if (content.length >= 200 && isAtEnd) {
+      return extractFromMatch(reply, last);
+    }
+  }
+
+  // No synthesis recognized — return the cleaned reply as summary, no prompt.
+  return { summary: stripFences(reply.trim()), prompt: null };
+}
+
+function extractFromMatch(
+  reply: string,
+  match: RegExpMatchArray,
+): { summary: string; prompt: string } {
   const promptRaw = match[1].trim();
-  // If the LLM wrapped the prompt content itself in code fences, strip them.
   const prompt = stripFences(promptRaw).trim();
   const matchStart = match.index ?? 0;
   const before = reply.slice(0, matchStart);
   const after = reply.slice(matchStart + match[0].length);
-  // Strip any leftover ``` markers in the surrounding summary text.
   const summary = stripFences(before + after).trim();
   return { summary, prompt };
 }

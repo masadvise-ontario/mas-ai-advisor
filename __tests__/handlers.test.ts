@@ -133,10 +133,11 @@ describe('recordTurn', () => {
 });
 
 describe('setConversationPrivacy', () => {
-  it('action=forget deletes prior turn events and returns deleted_count', async () => {
+  it('action=forget deletes prior turn events, wipes chatbot_messages, and emits the audit event', async () => {
     mockClient.query
       .mockResolvedValueOnce({ rowCount: 0, rows: [] }) // BEGIN
-      .mockResolvedValueOnce({ rowCount: 3, rows: [] }) // DELETE
+      .mockResolvedValueOnce({ rowCount: 3, rows: [] }) // DELETE FROM mas_journey_events
+      .mockResolvedValueOnce({ rowCount: 5, rows: [] }) // DELETE FROM chatbot_messages
       .mockResolvedValueOnce({ rowCount: 1, rows: [] }) // INSERT event
       .mockResolvedValueOnce({ rowCount: 0, rows: [] }); // COMMIT
 
@@ -149,7 +150,25 @@ describe('setConversationPrivacy', () => {
     expect(result).toEqual({ ok: true, action: 'forget', deleted_count: 3 });
     const calls = mockClient.query.mock.calls.map(([sql]) => sql);
     expect(calls[1]).toMatch(/DELETE FROM mas_journey_events/);
-    expect(calls[2]).toMatch(/INSERT INTO mas_journey_events/);
+    expect(calls[2]).toMatch(/DELETE FROM chatbot_messages/);
+    expect(calls[3]).toMatch(/INSERT INTO mas_journey_events/);
+  });
+
+  it('action=forget continues when chatbot_messages DELETE fails (no grant yet)', async () => {
+    mockClient.query
+      .mockResolvedValueOnce({ rowCount: 0, rows: [] }) // BEGIN
+      .mockResolvedValueOnce({ rowCount: 3, rows: [] }) // DELETE FROM mas_journey_events
+      .mockRejectedValueOnce(new Error('permission denied for table chatbot_messages')) // DELETE failed
+      .mockResolvedValueOnce({ rowCount: 1, rows: [] }) // INSERT event
+      .mockResolvedValueOnce({ rowCount: 0, rows: [] }); // COMMIT
+
+    const result = await setConversationPrivacy({
+      install_id: VALID_UUID,
+      conversation_id: VALID_UUID,
+      action: 'forget',
+    });
+
+    expect(result).toEqual({ ok: true, action: 'forget', deleted_count: 3 });
   });
 
   it('action=pause emits advisor_conversation_paused without deleting events', async () => {

@@ -176,4 +176,32 @@ actual prompt body
     expect(summary).toContain('free text');
     expect(summary).not.toContain('```');
   });
+
+  it('falls back to html-encoded tags when the LLM escapes < and >', () => {
+    const reply = `Summary.\n\n&lt;USER_PROMPT&gt;\nthe prompt body\n&lt;/USER_PROMPT&gt;`;
+    const { summary, prompt } = parseSynthesis(reply);
+    expect(prompt).toBe('the prompt body');
+    expect(summary).toContain('Summary.');
+  });
+
+  it('falls back to a substantial code block at the end when tags are missing', () => {
+    const body = 'You are helping me, the ED of Acme Nonprofit, with volunteer onboarding. ' .repeat(8);
+    const reply = `Here's your prompt. Paste it into ChatGPT.\n\n\`\`\`\n${body}\n\`\`\``;
+    const { summary, prompt } = parseSynthesis(reply);
+    expect(prompt).toContain('Acme Nonprofit');
+    expect(summary).toContain("Here's your prompt");
+  });
+
+  it('ignores small code blocks (avoids false-positive on inline code examples)', () => {
+    const reply = "You can try `pnpm test:probes`. That's the harness command.\n\n\`\`\`\nshort\n\`\`\`";
+    const { prompt } = parseSynthesis(reply);
+    expect(prompt).toBeNull();
+  });
+
+  it('ignores code blocks not at the end of the reply (avoids mid-message examples)', () => {
+    const body = 'A long block content. '.repeat(40);
+    const reply = `Heads up: \n\n\`\`\`\n${body}\n\`\`\`\n\nNow lots of more text afterward that makes the block not at the end at all.`;
+    const { prompt } = parseSynthesis(reply);
+    expect(prompt).toBeNull();
+  });
 });

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import {
   detectPrivacyIntent,
+  detectPrivacyMarker,
   getConversationPrivacyState,
 } from '@/lib/chatbot/privacy-intent';
 import type { ChatbotDb } from '@/lib/chatbot/types';
@@ -82,5 +83,67 @@ describe('getConversationPrivacyState', () => {
         'c',
       ),
     ).toBe('active');
+  });
+});
+
+describe('detectPrivacyIntent — expanded patterns (2026-05-23 audit)', () => {
+  it.each([
+    "don't record this",
+    "Don't record this, but I'm frustrated",
+    'please stop recording',
+    "Keep this private",
+    'Keep this between us',
+    'not for the record',
+    'private mode please',
+    'stop tracking me',
+    "don't save the conversation",
+  ])('matches pause: %s', (input) => {
+    expect(detectPrivacyIntent(input)).toBe('pause');
+  });
+
+  it.each([
+    'wipe this conversation',
+    'purge this conversation',
+    'erase the conversation',
+    'forget everything',
+    'forget all of this',
+    'delete everything',
+  ])('matches forget: %s', (input) => {
+    expect(detectPrivacyIntent(input)).toBe('forget');
+  });
+
+  it.each([
+    'turn the logging back on',
+    'start logging again',
+  ])('matches resume: %s', (input) => {
+    expect(detectPrivacyIntent(input)).toBe('resume');
+  });
+});
+
+describe('detectPrivacyMarker', () => {
+  it('detects [PRIVACY:pause] in the LLM reply and strips it', () => {
+    const reply = "Got it, paused logging.\n\n[PRIVACY:pause]";
+    const hit = detectPrivacyMarker(reply);
+    expect(hit?.action).toBe('pause');
+    expect(hit?.cleaned).toBe('Got it, paused logging.');
+  });
+
+  it('detects [PRIVACY:forget] case-insensitively', () => {
+    const hit = detectPrivacyMarker("Done — that's deleted. [privacy:FORGET]");
+    expect(hit?.action).toBe('forget');
+    expect(hit?.cleaned).not.toContain('PRIVACY');
+  });
+
+  it('detects [PRIVACY:resume] with whitespace inside the brackets', () => {
+    const hit = detectPrivacyMarker("Logging back on. [PRIVACY : resume ]");
+    expect(hit?.action).toBe('resume');
+  });
+
+  it('returns null when no marker is present', () => {
+    expect(detectPrivacyMarker('Just a normal reply.')).toBeNull();
+  });
+
+  it('returns null for empty input', () => {
+    expect(detectPrivacyMarker('')).toBeNull();
   });
 });
