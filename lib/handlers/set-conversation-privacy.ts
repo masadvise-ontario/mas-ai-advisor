@@ -27,6 +27,19 @@ export async function setConversationPrivacy(
       );
       const deletedCount = deleteResult.rowCount ?? 0;
 
+      // Wipe the chatbot_messages rows too — without this the message
+      // bodies persist even though the user asked to forget. Best-effort:
+      // if the grant isn't in place yet (migration 005 not applied), log
+      // and continue rather than blocking the user's privacy request.
+      try {
+        await client.query(
+          `DELETE FROM chatbot_messages WHERE conversation_id = $1`,
+          [body.conversation_id],
+        );
+      } catch (err) {
+        console.error('[set-conversation-privacy] chatbot_messages delete failed', err);
+      }
+
       await client.query(
         `INSERT INTO mas_journey_events
            (install_id, scope, event_type, payload, created_at)

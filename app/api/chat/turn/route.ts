@@ -9,11 +9,23 @@ import { chatCompletion } from '@/lib/chatbot/openrouter';
 import { recordTurnUsage } from '@/lib/chatbot/spend';
 import { verifySessionToken } from '@/lib/chatbot/session-token';
 import { SESSION_COOKIE_NAME } from '@/lib/chatbot/cookies';
-import { detectPrivacyIntent, getConversationPrivacyState } from '@/lib/chatbot/privacy-intent';
+import {
+  detectPrivacyIntent,
+  detectPrivacyMarker,
+  getConversationPrivacyState,
+} from '@/lib/chatbot/privacy-intent';
 import { getChatbotSystemPrompt, parseSynthesis } from '@/lib/chatbot/system-prompt';
 import { logChatbotMessage, getShareHistory } from '@/lib/chatbot/messages-log';
 
 const SYNTHESIS_MAX_TOKENS = 4000;
+
+// Default max_tokens for normal (non-cap-hit) turns. Bumped from 800 (the
+// chatCompletion default) because the LLM frequently volunteers a synthesis
+// before the cap is reached — and 800 tokens can't fit a 200-500 word
+// USER_PROMPT block plus a summary, leading to mid-sentence truncation,
+// failed parseSynthesis, no completion: true, and the conversation
+// continuing past where it should have closed.
+const TURN_MAX_TOKENS = 2500;
 
 export const runtime = 'nodejs';
 
@@ -89,12 +101,35 @@ export async function POST(req: NextRequest) {
       apiKey: openrouterKey,
       systemText: getChatbotSystemPrompt({ synthesisMode }),
       messages,
-      maxTokens: synthesisMode ? SYNTHESIS_MAX_TOKENS : undefined,
+      maxTokens: synthesisMode ? SYNTHESIS_MAX_TOKENS : TURN_MAX_TOKENS,
     });
   } catch (err) {
     console.error('[chat/turn] openrouter error', err);
     return NextResponse.json({ error: 'llm_error' }, { status: 502 });
   }
+
+  // Belt-and-suspenders privacy detection: if the LLM acknowledged a
+  // privacy intent in its reply (via the [PRIVACY:pause|resume|forget]
+  // marker), apply that too. Catches cases where the user's phrasing
+  // didn't match the regex but the LLM understood. The marker is
+  // stripped from the visible reply.
+  const markerHit = detectPrivacyMarker(completion.reply);
+  if (markerHit && markerHit.action !== intent) {
+    try {
+      await setConversationPrivacy({
+        install_id: session.install_id,
+        conversation_id: session.conversation_id,
+        action: markerHit.action,
+      });
+      console.info(`[chat/turn] privacy marker from LLM: ${markerHit.action}`);
+    } catch (err) {
+      console.error('[chat/turn] LLM marker handler error', err);
+    }
+  }
+  if (markerHit) {
+    completion.reply = markerHit.cleaned;
+  }
+  const effectiveIntent = intent ?? markerHit?.action ?? null;
 
   // Spend tracking — fire-and-forget; failures must not block the reply.
   recordTurnUsage(pool, {
@@ -119,7 +154,7 @@ export async function POST(req: NextRequest) {
       event_subtype: 'turn_started',
       payload: {
         platform: 'web',
-        intent: intent ?? undefined,
+        intent: effectiveIntent ?? undefined,
       },
     }).catch((err) => console.error('[chat/turn] recordTurn failed', err));
 
